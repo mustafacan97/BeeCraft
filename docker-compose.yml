@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: admin       # superuser
+      POSTGRES_PASSWORD: 123qwe # superuser password 
+      POSTGRES_DB: platform     # default database
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - platform
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "admin", "-d", "platform"]
+      interval: 5s
+      retries: 5
+      start_period: 10s
+      timeout: 5s
+    restart: always
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: test@test.com # admin account to login to pgadmin
+      PGADMIN_DEFAULT_PASSWORD: 123qwe     # admin account password to login to pgadmin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    networks:
+      - platform
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    environment:
+      # - LISTEN_ADDR=0.0.0.0
+      - LISTEN_PORT=6432
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=100                   # izin verilen maksimum client bağlantı sayısı
+      - DEFAULT_POOL_SIZE=20                  # user/database çifti başına kaç sunucu bağlantısına izin verileceği
+      - MIN_POOL_SIZE=10                      # minimum sunucu bağlantısı sayısı
+      - MAX_DB_CONNECTIONS=0                  # PgBouncer'ın bir veritabanına maksimum bağlantısı sayısı (0 sınırsız)
+      - MAX_DB_CLIENT_CONNECTIONS=0           # istemcilerin PgBouncer'a bağlanabileceği maksimum bağlantı sayısı (0 sınırsız)
+      - MAX_USER_CONNECTIONS=0                # bir kullanıcının veritabanına yapabileceği maksimum bağlantısı sayısı (0 sınırsız)
+      - MAX_USER_CLIENT_CONNECTIONS=0         # bir kullanıcının PgBouncer'a yapabileceği maksimum bağlantı sayısı (0 sınırsız)
+      - AUTH_TYPE=scram-sha-256               # kullanıcıların kimliği nasıl doğrulanır
+      - AUTH_FILE=/etc/pgbouncer/userlist.txt # kullanıcı adlarının ve parolaların yükleneceği dosyanın adı.
+      - DB_NAME=platform  
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=admin
+      - DB_PASSWORD=123qwe
+    ports:
+      - "6432:6432"
+    networks:
+      - platform
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+
+  liquibase:
+    image: liquibase/liquibase
+    environment:
+      LIQUIBASE_COMMAND_URL: "jdbc:postgresql://postgres:5432/platform"
+      LIQUIBASE_COMMAND_USERNAME: "admin"
+      LIQUIBASE_COMMAND_PASSWORD: "123qwe"
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: "changelog.xml"
+      LIQUIBASE_SEARCH_PATH: /liquibase/changelog
+    volumes:
+      - ./migrations/:/liquibase/changelog
+    networks:
+      - platform
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: [ "liquibase", "update" ]
+
+  postgres_client:
+    image: ubuntu:22.04
+    stdin_open: true   # Kontrol için giriş (stdin) açık tutuyor
+    tty: true          # Terminali açık tutuyor
+    command: bash -c "apt update; apt install -y vim iputils-ping postgresql-client curl; /bin/bash"
+    networks:
+      - platform
+
+networks:
+  platform:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.0.0/24
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+# 1) Run following command on postgres container to get admin users' password as scram-sha-256:
+# --- PGPASSWORD='123qwe' psql -h localhost -p 5432 -U admin -d platform
+# --- SELECT rolname, rolpassword FROM pg_authid WHERE rolname = 'admin';
+# 2) Paste result of password to userlist.txt in pgbouncer container.
+# 3)If you wanna save password to csv file run following command:
+# --- COPY (SELECT rolname, rolpassword FROM pg_authid WHERE pg_authid.rolpassword IS NOT NULL) TO '/var/lib/postgresql/data/pg_auth' WITH CSV;
+# 4) To connect pgbouncer over postgres client container:
+# PGPASSWORD='123qwe' psql -h pgbouncer -p 6432 -U admin -d platform
+# 5) Add line below to end of the pg_hba.conf file;
+# host    platform        admin           192.168.0.1/24          scram-sha-256
