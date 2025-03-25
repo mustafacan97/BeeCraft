@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -9,10 +10,14 @@ import (
 	"time"
 
 	_ "platform/config"
+	"platform/internal/application/adapters/secondary/postgresql"
+	"platform/internal/application/handlers"
+	"platform/internal/application/handlers/auth"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
 
@@ -21,16 +26,16 @@ func main() {
 
 	// Ensure logs are flushed before the application exits
 	defer func() {
-		if err := zap.L().Sync(); err != nil {
+		// The ENOTTY error occurs when an operation that requires a terminal device is performed
+		// on a file descriptor that is not connected to a terminal. We can ignore it for now.
+		if err := zap.L().Sync(); err != nil && !errors.Is(err, syscall.ENOTTY) {
 			zap.L().Error("Failed to flush logs", zap.Error(err))
 		}
 	}()
 
-	dbConn, err := connectToPostgresql()
-	if err != nil {
-		panic(fmt.Sprintf("Database connection failed: %v", err))
-	}
-	defer dbConn.Close(context.Background())
+	// Initialize PostgreSQL connection pool
+	dbPool := createPgxConnectionPool()
+	defer dbPool.Close()
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -41,6 +46,16 @@ func main() {
 
 	// Initialize default config
 	app.Use(pprof.New())
+
+	// PostgreSQL Repositories
+	userRepository := postgresql.NewUserRepository(dbPool)
+	roleRepository := postgresql.NewRoleRepository(dbPool)
+
+	// Handlers
+	registerHandler := auth.NewRegisterHandler(userRepository, roleRepository)
+
+	// Routes
+	app.Post("/register", handlers.Serve(registerHandler))
 
 	// Define a sample route
 	app.Get("/", func(c *fiber.Ctx) error {
@@ -79,14 +94,43 @@ func gracefulShutdown(app *fiber.App) {
 	zap.L().Info("Server exited gracefully")
 }
 
-func connectToPostgresql() (*pgx.Conn, error) {
-	dsn := "postgres://admin:123qwe@localhost:6432/platform?sslmode=disable"
-
-	conn, err := pgx.Connect(context.Background(), dsn)
+func createPgxConnectionPool() *pgxpool.Pool {
+	connPool, err := pgxpool.NewWithConfig(context.Background(), pgxPoolConfig())
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse config: %w", err)
+		panic(fmt.Errorf("database connection failed: %v", err))
 	}
 
-	zap.L().Info("Connected to PostgreSQL")
-	return conn, nil
+	return connPool
+}
+
+func pgxPoolConfig() *pgxpool.Config {
+	const DATABASE_URL string = "postgres://admin:123qwe@localhost:6432/platform?sslmode=disable"
+
+	dbConfig, err := pgxpool.ParseConfig(DATABASE_URL)
+	if err != nil {
+		panic(fmt.Errorf("database connection config parsing failed: %w", err))
+	}
+
+	dbConfig.MaxConns = 100
+	dbConfig.MinConns = 10
+	dbConfig.MaxConnLifetime = time.Hour
+	dbConfig.MaxConnIdleTime = time.Minute * 15
+	dbConfig.HealthCheckPeriod = time.Minute
+	dbConfig.ConnConfig.ConnectTimeout = time.Second * 5
+
+	dbConfig.BeforeAcquire = func(ctx context.Context, c *pgx.Conn) bool {
+		zap.L().Info("Before acquiring the connection pool to the database")
+		return true
+	}
+
+	dbConfig.AfterRelease = func(c *pgx.Conn) bool {
+		zap.L().Info("After releasing the connection pool to the database")
+		return true
+	}
+
+	dbConfig.BeforeClose = func(c *pgx.Conn) {
+		zap.L().Info("Closed the connection pool to the database")
+	}
+
+	return dbConfig
 }
