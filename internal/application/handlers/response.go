@@ -26,3 +26,10 @@ func CreatedResponseWithoutData[T any]() *Response[T] {
 		ResponseStatus: 201,
 	}
 }
+
+func ConflictResponse[T any](message string) *Response[T] {
+	return &Response[T]{
+		Message:        message,
+		ResponseStatus: 409,
+	}
+}

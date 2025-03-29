@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.users
     email_validated         boolean NOT NULL,
     phone                   character varying(16) COLLATE pg_catalog."default",
     phone_validated         boolean NOT NULL,
-    gender_type_id          integer,
+    gender                  integer,
     birth_date              timestamp without time zone,
     password_hash           text COLLATE pg_catalog."default" NOT NULL,
     last_password_change_at timestamp without time zone,

@@ -76,5 +76,5 @@ func (b *inMemoryEventBus) Close() {
 	defer b.mu.Unlock()
 	// You can clear memory by clearing all subscriptions.
 	b.subscriptions = make(map[string]map[string]eventBus.Subscription)
-	zap.L().Info("RabbitMQ connection closed")
+	zap.L().Info("InMemory event bus connection closed")
 }
