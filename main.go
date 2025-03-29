@@ -3,25 +3,26 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	_ "platform/config"
-	"platform/internal/application/adapters/secondary/postgresql"
+	"platform/configs"
+	eventBusAdapter "platform/internal/application/adapters/eventBus"
+	"platform/internal/application/adapters/postgresql"
 	"platform/internal/application/handlers"
-	"platform/internal/application/handlers/auth"
+	domainEvents "platform/internal/domain/events"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
 
 func main() {
+	configs.InitializeLogConfig()
+
 	zap.L().Info("Application is starting...")
 
 	// Ensure logs are flushed before the application exits
@@ -33,9 +34,19 @@ func main() {
 		}
 	}()
 
-	// Initialize PostgreSQL connection pool
-	dbPool := createPgxConnectionPool()
-	defer dbPool.Close()
+	if err := godotenv.Load(); err != nil {
+		zap.L().Fatal("Error loading .env file")
+	}
+	zap.L().Info(".env file loaded successfully")
+
+	// For InMemory
+	// bus := eventBusAdapter.NewInMemoryEventBus()
+	bus := eventBusAdapter.NewRabbitMQEventBus("amq.topic")
+	defer bus.Close()
+	bus.Subscribe("NotificationService", "user.created", func(ctx context.Context, event domainEvents.Event) error {
+		zap.L().Info("Received event", zap.Any("event", event))
+		return nil
+	})
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -47,20 +58,19 @@ func main() {
 	// Initialize default config
 	app.Use(pprof.New())
 
+	// Initialize database configurations
+	dbPool := configs.InitializePgxConnectionPool()
+	defer dbPool.Close()
+
 	// PostgreSQL Repositories
 	userRepository := postgresql.NewUserRepository(dbPool)
 	roleRepository := postgresql.NewRoleRepository(dbPool)
 
 	// Handlers
-	registerHandler := auth.NewRegisterHandler(userRepository, roleRepository)
+	registerHandler := handlers.NewRegisterHandler(&bus, &userRepository, &roleRepository)
 
 	// Routes
 	app.Post("/register", handlers.Serve(registerHandler))
-
-	// Define a sample route
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.SendString("Hello, World!")
-	})
 
 	// Run server in a goroutine
 	go func() {
@@ -92,45 +102,4 @@ func gracefulShutdown(app *fiber.App) {
 	}
 
 	zap.L().Info("Server exited gracefully")
-}
-
-func createPgxConnectionPool() *pgxpool.Pool {
-	connPool, err := pgxpool.NewWithConfig(context.Background(), pgxPoolConfig())
-	if err != nil {
-		panic(fmt.Errorf("database connection failed: %v", err))
-	}
-
-	return connPool
-}
-
-func pgxPoolConfig() *pgxpool.Config {
-	const DATABASE_URL string = "postgres://admin:123qwe@localhost:6432/platform?sslmode=disable"
-
-	dbConfig, err := pgxpool.ParseConfig(DATABASE_URL)
-	if err != nil {
-		panic(fmt.Errorf("database connection config parsing failed: %w", err))
-	}
-
-	dbConfig.MaxConns = 100
-	dbConfig.MinConns = 10
-	dbConfig.MaxConnLifetime = time.Hour
-	dbConfig.MaxConnIdleTime = time.Minute * 15
-	dbConfig.HealthCheckPeriod = time.Minute
-	dbConfig.ConnConfig.ConnectTimeout = time.Second * 5
-
-	dbConfig.BeforeAcquire = func(ctx context.Context, c *pgx.Conn) bool {
-		zap.L().Info("Before acquiring the connection pool to the database")
-		return true
-	}
-
-	dbConfig.AfterRelease = func(c *pgx.Conn) bool {
-		zap.L().Info("After releasing the connection pool to the database")
-		return true
-	}
-
-	dbConfig.BeforeClose = func(c *pgx.Conn) {
-		zap.L().Info("Closed the connection pool to the database")
-	}
-
-	return dbConfig
 }

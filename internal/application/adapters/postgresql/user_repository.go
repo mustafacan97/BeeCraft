@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"platform/internal/application/ports/secondary"
+	"platform/internal/application/ports/repositories"
 	"platform/internal/domain"
 	"strings"
 	"time"
@@ -18,7 +18,7 @@ type userRepositoryImpl struct {
 	pool *pgxpool.Pool
 }
 
-func NewUserRepository(pool *pgxpool.Pool) secondary.UserRepository {
+func NewUserRepository(pool *pgxpool.Pool) repositories.UserRepository {
 	return &userRepositoryImpl{pool: pool}
 }
 

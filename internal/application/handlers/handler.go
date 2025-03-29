@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
-	"platform/internal/application/validators"
+	validators "platform/internal/application/adapters/validator"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"

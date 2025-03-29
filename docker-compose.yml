@@ -82,13 +82,19 @@ services:
         condition: service_healthy
     entrypoint: [ "liquibase", "update" ]
 
-  postgres_client:
-    image: ubuntu:22.04
-    stdin_open: true   # Kontrol için giriş (stdin) açık tutuyor
-    tty: true          # Terminali açık tutuyor
-    command: bash -c "apt update; apt install -y vim iputils-ping postgresql-client curl; /bin/bash"
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
     networks:
       - platform
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
 
 networks:
   platform:
@@ -101,6 +107,8 @@ volumes:
   postgres_data:
     driver: local
   pgadmin_data:
+    driver: local
+  rabbitmq_data:
     driver: local
 
 # 1) Run following command on postgres container to get admin users' password as scram-sha-256:

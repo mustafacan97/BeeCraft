@@ -1,4 +1,4 @@
-package secondary
+package repositories
 
 import (
 	"context"
