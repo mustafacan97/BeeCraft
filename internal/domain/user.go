@@ -30,14 +30,16 @@ type User struct {
 	RefreshToken         string
 	RefreshTokenExpireAt time.Time
 	LastIpAddress        string
-	LastLoginDate        time.Time
+	LastLoginAt          time.Time
+	IsSystemUser         bool
 	AdminComment         string
 	CreatedAt            time.Time
 	Active               bool
 	Deleted              bool
+	Roles                []Role
 }
 
-func NewUser(email, password string) (*User, error) {
+func NewUser(email, password string, roles []Role) (*User, error) {
 	passwordHasher := &services.PasswordHasher{}
 
 	// Hash and salt the password
@@ -62,12 +64,14 @@ func NewUser(email, password string) (*User, error) {
 		CannotLoginUntilAt:   time.Time{},       // No restriction by default
 		RefreshToken:         "",                // Empty by default
 		RefreshTokenExpireAt: time.Time{},       // No expiration set
-		LastIpAddress:        "",                // Empty by default
-		LastLoginDate:        time.Time{},       // No login date by default
-		AdminComment:         "",                // Empty by default
-		CreatedAt:            time.Now(),        // Set to the current time
-		Active:               true,              // Default to active
-		Deleted:              false,             // Default to not deleted
+		LastIpAddress:        "",
+		LastLoginAt:          time.Time{},
+		IsSystemUser:         false,
+		AdminComment:         "",
+		CreatedAt:            time.Now(),
+		Active:               true,
+		Deleted:              false,
+		Roles:                roles,
 	}, nil
 }
 
@@ -94,7 +98,7 @@ func (u *User) ResetFailedLoginAttempts() {
 }
 
 func (u *User) SetLastLogin(ipAddress string) {
-	u.LastLoginDate = time.Now()
+	u.LastLoginAt = time.Now()
 	u.LastIpAddress = ipAddress
 }
 
@@ -106,5 +110,5 @@ func (u *User) MarkAsDeleted() {
 func (u *User) ActivateUser() {
 	u.Active = true
 	u.Deleted = false
-	u.LastLoginDate = time.Now()
+	u.LastLoginAt = time.Now()
 }

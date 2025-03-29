@@ -14,4 +14,13 @@
             stripComments="true" />
     </changeSet>
 
+    <changeSet id="2" author="Mustafa">
+        <sqlFile dbms="postgresql"
+            encoding="UTF-8"
+            path="./1902202502-seed-data.sql"
+            relativeToChangelogFile="true"
+            splitStatements="true"
+            stripComments="true" />
+    </changeSet>
+
 </databaseChangeLog>
