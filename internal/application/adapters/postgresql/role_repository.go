@@ -3,7 +3,7 @@ package postgresql
 import (
 	"context"
 	"fmt"
-	"platform/internal/application/ports/secondary"
+	"platform/internal/application/ports/repositories"
 	"platform/internal/domain"
 
 	"github.com/jackc/pgx/v5"
@@ -14,7 +14,7 @@ type roleRepositoryImpl struct {
 	pool *pgxpool.Pool
 }
 
-func NewRoleRepository(pool *pgxpool.Pool) secondary.RoleRepository {
+func NewRoleRepository(pool *pgxpool.Pool) repositories.RoleRepository {
 	return &roleRepositoryImpl{pool: pool}
 }
 

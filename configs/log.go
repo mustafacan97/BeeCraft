@@ -1,4 +1,4 @@
-package config
+package configs
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 )
 
 // initializes logger as a global logger instance.
-func init() {
+func InitializeLogConfig() {
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.TimeKey = "timestamp"
 	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -22,7 +22,7 @@ func init() {
 		EncoderConfig:     encoderCfg,
 		OutputPaths:       []string{"stderr"},
 		ErrorOutputPaths:  []string{"stderr"},
-		InitialFields: map[string]interface{}{
+		InitialFields: map[string]any{
 			"pid": os.Getpid(),
 		},
 	}

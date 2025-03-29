@@ -27,3 +27,4 @@ go.work.sum
 # CUSTOM
 .DS_STORE
 .vscode
+__debug*

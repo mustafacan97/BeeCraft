@@ -1,11 +1,12 @@
-package auth
+package handlers
 
 import (
 	"context"
 	"fmt"
-	"platform/internal/application/handlers"
-	"platform/internal/application/ports/secondary"
+	"platform/internal/application/ports/repositories"
+	eventBus "platform/internal/application/ports/services"
 	"platform/internal/domain"
+	domainEvents "platform/internal/domain/events"
 	"platform/internal/enum"
 )
 
@@ -21,18 +22,20 @@ type RegisterResponse struct {
 }
 
 type RegisterHandler struct {
-	userRepository secondary.UserRepository
-	roleRepository secondary.RoleRepository
+	eventBus       eventBus.EventBus
+	userRepository repositories.UserRepository
+	roleRepository repositories.RoleRepository
 }
 
-func NewRegisterHandler(userRepository secondary.UserRepository, roleRepository secondary.RoleRepository) *RegisterHandler {
+func NewRegisterHandler(eventBus *eventBus.EventBus, userRepository *repositories.UserRepository, roleRepository *repositories.RoleRepository) *RegisterHandler {
 	return &RegisterHandler{
-		userRepository: userRepository,
-		roleRepository: roleRepository,
+		eventBus:       *eventBus,
+		userRepository: *userRepository,
+		roleRepository: *roleRepository,
 	}
 }
 
-func (h *RegisterHandler) Handle(ctx context.Context, req *RegisterRequest) (*handlers.Response[RegisterResponse], error) {
+func (h *RegisterHandler) Handle(ctx context.Context, req *RegisterRequest) (*Response[RegisterResponse], error) {
 	registeredRole, err := h.roleRepository.GetSystemRoleByName(ctx, enum.REGISTERED)
 	if err != nil {
 		return nil, fmt.Errorf("an error occurred on registration process: %w", err)
@@ -45,5 +48,7 @@ func (h *RegisterHandler) Handle(ctx context.Context, req *RegisterRequest) (*ha
 		return nil, fmt.Errorf("an error occurred on registration process: %w", err)
 	}
 
-	return handlers.CreatedResponseWithoutData[RegisterResponse](), nil
+	h.eventBus.Publish(ctx, *domainEvents.NewUserCreatedDomainEvent(user.Email))
+
+	return CreatedResponseWithoutData[RegisterResponse](), nil
 }
