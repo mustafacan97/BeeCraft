@@ -15,24 +15,24 @@ const (
 
 type User struct {
 	Id                   uuid.UUID
-	FirstName            string
-	LastName             string
+	FirstName            *string
+	LastName             *string
 	Email                string
 	EmailValidated       bool
-	Phone                string
+	Phone                *string
 	PhoneValidated       bool
 	Gender               enum.GenderType
-	BirthDate            time.Time
+	BirthDate            *time.Time
 	PasswordHash         string
-	LastPasswordChangeAt time.Time
+	LastPasswordChangeAt *time.Time
 	FailedLoginAttempts  uint8
-	CannotLoginUntilAt   time.Time
-	RefreshToken         string
-	RefreshTokenExpireAt time.Time
-	LastIpAddress        string
-	LastLoginAt          time.Time
+	CannotLoginUntilAt   *time.Time
+	RefreshToken         *string
+	RefreshTokenExpireAt *time.Time
+	LastIpAddress        *string
+	LastLoginAt          *time.Time
 	IsSystemUser         bool
-	AdminComment         string
+	AdminComment         *string
 	CreatedAt            time.Time
 	Active               bool
 	Deleted              bool
@@ -49,25 +49,25 @@ func NewUser(email, password string, roles []Role) (*User, error) {
 	}
 
 	return &User{
-		Id:                   uuid.New(),        // Generate a new UUID for the user
-		FirstName:            "",                // Empty by default, can be updated later
-		LastName:             "",                // Empty by default, can be updated later
-		Email:                email,             // Provided email
-		EmailValidated:       false,             // Email validation flag, default to false
-		Phone:                "",                // Empty by default, can be updated later
-		PhoneValidated:       false,             // Phone validation flag, default to false
-		Gender:               enum.NotSpecified, // Default value
-		BirthDate:            time.Time{},       // No birth date set by default
-		PasswordHash:         hashedPassword,    // Provided password hash
-		LastPasswordChangeAt: time.Now(),        // Set to the current time
-		FailedLoginAttempts:  0,                 // Default to 0 failed login attempts
-		CannotLoginUntilAt:   time.Time{},       // No restriction by default
-		RefreshToken:         "",                // Empty by default
-		RefreshTokenExpireAt: time.Time{},       // No expiration set
-		LastIpAddress:        "",
-		LastLoginAt:          time.Time{},
+		Id:                   uuid.New(),
+		FirstName:            nil,
+		LastName:             nil,
+		Email:                email,
+		EmailValidated:       false,
+		Phone:                nil,
+		PhoneValidated:       false,
+		Gender:               enum.NotSpecified,
+		BirthDate:            nil,
+		PasswordHash:         hashedPassword,
+		LastPasswordChangeAt: nil,
+		FailedLoginAttempts:  0,
+		CannotLoginUntilAt:   nil,
+		RefreshToken:         nil,
+		RefreshTokenExpireAt: nil,
+		LastIpAddress:        nil,
+		LastLoginAt:          nil,
 		IsSystemUser:         false,
-		AdminComment:         "",
+		AdminComment:         nil,
 		CreatedAt:            time.Now(),
 		Active:               true,
 		Deleted:              false,
@@ -81,25 +81,27 @@ func (u *User) UpdateEmail(newEmail string) {
 }
 
 func (u *User) UpdatePhone(newPhone string) {
-	u.Phone = newPhone
+	u.Phone = &newPhone
 	u.PhoneValidated = false
 }
 
 func (u *User) IncrementFailedLoginAttempts() {
 	u.FailedLoginAttempts++
 	if u.FailedLoginAttempts >= max_failed_attempts {
-		u.CannotLoginUntilAt = time.Now().Add(30 * time.Minute) // Lock the user out for 30 minutes after 5 failed attempts
+		lockTime := time.Now().Add(30 * time.Minute) // Lock the user out for 30 minutes after 5 failed attempts
+		u.CannotLoginUntilAt = &lockTime
 	}
 }
 
 func (u *User) ResetFailedLoginAttempts() {
 	u.FailedLoginAttempts = 0
-	u.CannotLoginUntilAt = time.Time{}
+	u.CannotLoginUntilAt = nil
 }
 
 func (u *User) SetLastLogin(ipAddress string) {
-	u.LastLoginAt = time.Now()
-	u.LastIpAddress = ipAddress
+	now := time.Now()
+	u.LastLoginAt = &now
+	u.LastIpAddress = &ipAddress
 }
 
 func (u *User) MarkAsDeleted() {
@@ -108,7 +110,8 @@ func (u *User) MarkAsDeleted() {
 }
 
 func (u *User) ActivateUser() {
+	now := time.Now()
 	u.Active = true
 	u.Deleted = false
-	u.LastLoginAt = time.Now()
+	u.LastLoginAt = &now
 }

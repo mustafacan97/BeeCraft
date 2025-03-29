@@ -37,11 +37,11 @@ func (r *userRepositoryImpl) Create(ctx context.Context, user *domain.User) erro
 		valueArgs = append(valueArgs, user.Id.String(), role.Id)
 	}
 
-	userSql := "INSERT INTO users (id, email, email_validated, phone_validated, password_hash, failed_login_attempts, is_system_user, created_at, active, deleted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+	userSql := "INSERT INTO users (id, email, email_validated, phone_validated, gender, password_hash, failed_login_attempts, is_system_user, created_at, active, deleted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
 	roleSql := "INSERT INTO user_role_mappings (user_id, role_id) VALUES " + strings.Join(valueStrings, ",")
 
 	return runInTransaction(ctx, r.pool, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, userSql, user.Id, user.Email, false, false, user.PasswordHash, 0, false, time.Now(), true, false)
+		_, err := tx.Exec(ctx, userSql, user.Id, user.Email, false, false, user.Gender, user.PasswordHash, 0, false, time.Now(), true, false)
 		if err != nil {
 			return err
 		}
@@ -108,7 +108,24 @@ func (r *userRepositoryImpl) GetByEmail(ctx context.Context, email string) (*dom
 		&user.Active,
 		&user.Deleted,
 	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+
 	return &user, err
+}
+
+func (r *userRepositoryImpl) Exists(ctx context.Context, email string) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`
+
+	err := r.pool.QueryRow(ctx, query, email).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
 }
 
 func (r *userRepositoryImpl) Update(ctx context.Context, user *domain.User) error {

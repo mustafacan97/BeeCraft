@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"platform/internal/application/ports/repositories"
 	eventBus "platform/internal/application/ports/services"
@@ -41,7 +42,23 @@ func (h *RegisterHandler) Handle(ctx context.Context, req *RegisterRequest) (*Re
 		return nil, fmt.Errorf("an error occurred on registration process: %w", err)
 	}
 
-	user, _ := domain.NewUser(req.Email, req.Password, []domain.Role{*registeredRole})
+	if registeredRole == nil {
+		return nil, errors.New("at least one role must be selected")
+	}
+
+	exists, err := h.userRepository.Exists(ctx, req.Email)
+	if err != nil {
+		return nil, fmt.Errorf("an error occurred on registration process: %w", err)
+	}
+
+	if exists {
+		return ConflictResponse[RegisterResponse]("user already exists"), nil
+	}
+
+	user, err := domain.NewUser(req.Email, req.Password, []domain.Role{*registeredRole})
+	if err != nil {
+		return nil, fmt.Errorf("an error occurred on registration process: %w", err)
+	}
 
 	err = h.userRepository.Create(ctx, user)
 	if err != nil {

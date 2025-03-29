@@ -12,7 +12,6 @@ import (
 	eventBusAdapter "platform/internal/application/adapters/eventBus"
 	"platform/internal/application/adapters/postgresql"
 	"platform/internal/application/handlers"
-	domainEvents "platform/internal/domain/events"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
@@ -43,10 +42,10 @@ func main() {
 	// bus := eventBusAdapter.NewInMemoryEventBus()
 	bus := eventBusAdapter.NewRabbitMQEventBus("amq.topic")
 	defer bus.Close()
-	bus.Subscribe("NotificationService", "user.created", func(ctx context.Context, event domainEvents.Event) error {
+	/*bus.Subscribe("NotificationService", "user.created", func(ctx context.Context, event domainEvents.Event) error {
 		zap.L().Info("Received event", zap.Any("event", event))
 		return nil
-	})
+	})*/
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
