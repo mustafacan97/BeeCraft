@@ -42,7 +42,7 @@ func main() {
 	// bus := eventBusAdapter.NewInMemoryEventBus()
 	bus := eventBusAdapter.NewRabbitMQEventBus("amq.topic")
 	defer bus.Close()
-	/*bus.Subscribe("NotificationService", "user.created", func(ctx context.Context, event domainEvents.Event) error {
+	/*bus.Subscribe("NotificationService", "user.registered", func(ctx context.Context, event domain.Event) error {
 		zap.L().Info("Received event", zap.Any("event", event))
 		return nil
 	})*/

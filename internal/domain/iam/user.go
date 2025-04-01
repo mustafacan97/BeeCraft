@@ -1,12 +1,21 @@
-package domain
+package iam
 
 import (
+	"errors"
 	"time"
 
+	"platform/internal/domain"
 	"platform/internal/enum"
-	services "platform/internal/service"
 
 	"github.com/google/uuid"
+)
+
+var (
+	ErrInvalidPassword    = errors.New("invalid password")
+	ErrInvalidUser        = errors.New("invalid user")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrUserAlreadyExists  = errors.New("user already exists")
+	ErrInvalidCredentials = errors.New("invalid username or password")
 )
 
 const (
@@ -14,7 +23,7 @@ const (
 )
 
 type User struct {
-	Id                   uuid.UUID
+	domain.BaseAggregateRoot
 	FirstName            *string
 	LastName             *string
 	Email                string
@@ -34,22 +43,27 @@ type User struct {
 	IsSystemUser         bool
 	AdminComment         *string
 	CreatedAt            time.Time
+	UpdatedAt            *time.Time
 	Active               bool
 	Deleted              bool
 	Roles                []Role
 }
 
-func NewUser(email, password string, roles []Role) (*User, error) {
-	passwordHasher := &services.PasswordHasher{}
-
-	// Hash and salt the password
-	hashedPassword, err := passwordHasher.HashWithBcrypt(password)
+func NewUser(email, rawPassword string, roles []Role) (*User, error) {
+	password, err := NewPassword(rawPassword)
 	if err != nil {
-		return nil, err // Return error if password hashing fails
+		return nil, err
 	}
 
-	return &User{
-		Id:                   uuid.New(),
+	hashedPassword, err := password.Hash()
+	if err != nil {
+		return nil, err
+	}
+
+	user := &User{
+		BaseAggregateRoot: domain.BaseAggregateRoot{
+			Id: uuid.New(),
+		},
 		FirstName:            nil,
 		LastName:             nil,
 		Email:                email,
@@ -69,10 +83,37 @@ func NewUser(email, password string, roles []Role) (*User, error) {
 		IsSystemUser:         false,
 		AdminComment:         nil,
 		CreatedAt:            time.Now(),
+		UpdatedAt:            nil,
 		Active:               true,
 		Deleted:              false,
 		Roles:                roles,
-	}, nil
+	}
+
+	return user, nil
+}
+
+func (u *User) Authenticate(rawPassword string) bool {
+	password := Password(rawPassword)
+	return password.Matches(u.PasswordHash)
+}
+
+func (u *User) ChangePassword(rawOldPassword, rawNewPassword string) error {
+	ok := u.Authenticate(rawOldPassword)
+	if !ok {
+		return ErrInvalidPassword
+	}
+
+	newPassword, err := NewPassword(rawNewPassword)
+	if err != nil {
+		return err
+	}
+
+	_, err = newPassword.Hash()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (u *User) UpdateEmail(newEmail string) {

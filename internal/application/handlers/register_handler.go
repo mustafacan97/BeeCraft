@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"platform/internal/application/ports/repositories"
 	eventBus "platform/internal/application/ports/services"
-	"platform/internal/domain"
-	domainEvents "platform/internal/domain/events"
+	"platform/internal/domain/iam"
 	"platform/internal/enum"
 )
 
@@ -55,7 +54,7 @@ func (h *RegisterHandler) Handle(ctx context.Context, req *RegisterRequest) (*Re
 		return ConflictResponse[RegisterResponse]("user already exists"), nil
 	}
 
-	user, err := domain.NewUser(req.Email, req.Password, []domain.Role{*registeredRole})
+	user, err := iam.NewUser(req.Email, req.Password, []iam.Role{*registeredRole})
 	if err != nil {
 		return nil, fmt.Errorf("an error occurred on registration process: %w", err)
 	}
@@ -65,7 +64,8 @@ func (h *RegisterHandler) Handle(ctx context.Context, req *RegisterRequest) (*Re
 		return nil, fmt.Errorf("an error occurred on registration process: %w", err)
 	}
 
-	h.eventBus.Publish(ctx, *domainEvents.NewUserCreatedDomainEvent(user.Email))
+	event := iam.NewUserRegisteredEvent(user.Id.String(), user.Email)
+	h.eventBus.Publish(ctx, event)
 
 	return CreatedResponseWithoutData[RegisterResponse](), nil
 }

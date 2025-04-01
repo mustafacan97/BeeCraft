@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	eventBus "platform/internal/application/ports/services"
-	domainEvents "platform/internal/domain/events"
+	"platform/internal/domain"
+
 	"sync"
 
 	"github.com/google/uuid"
@@ -25,11 +26,11 @@ func NewInMemoryEventBus() eventBus.EventBus {
 }
 
 // Publish sends an event to all subscribers of the event name.
-func (b *inMemoryEventBus) Publish(ctx context.Context, event domainEvents.Event) error {
+func (b *inMemoryEventBus) Publish(ctx context.Context, event domain.Event) error {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
-	if subs, exists := b.subscriptions[event.Name]; exists {
+	if subs, exists := b.subscriptions[event.GetEventType()]; exists {
 		for _, sub := range subs {
 			go sub.Handler(ctx, event) // Execute asynchronously
 		}
@@ -38,7 +39,7 @@ func (b *inMemoryEventBus) Publish(ctx context.Context, event domainEvents.Event
 }
 
 // Subscribe registers a new event handler.
-func (b *inMemoryEventBus) Subscribe(subscriber, eventName string, handler func(ctx context.Context, event domainEvents.Event) error) (string, error) {
+func (b *inMemoryEventBus) Subscribe(subscriber, eventName string, handler func(ctx context.Context, event domain.Event) error) (string, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
