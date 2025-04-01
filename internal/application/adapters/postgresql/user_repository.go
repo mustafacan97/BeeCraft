@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"platform/internal/application/ports/repositories"
-	"platform/internal/domain"
+	"platform/internal/domain/iam"
 	"strings"
 	"time"
 
@@ -22,7 +22,7 @@ func NewUserRepository(pool *pgxpool.Pool) repositories.UserRepository {
 	return &userRepositoryImpl{pool: pool}
 }
 
-func (r *userRepositoryImpl) Create(ctx context.Context, user *domain.User) error {
+func (r *userRepositoryImpl) Create(ctx context.Context, user *iam.User) error {
 	if len(user.Roles) == 0 {
 		return errors.New("user must have at least a role")
 	}
@@ -51,8 +51,8 @@ func (r *userRepositoryImpl) Create(ctx context.Context, user *domain.User) erro
 	})
 }
 
-func (r *userRepositoryImpl) GetById(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	var user domain.User
+func (r *userRepositoryImpl) GetById(ctx context.Context, id uuid.UUID) (*iam.User, error) {
+	var user iam.User
 	sql := `SELECT * FROM users WHERE id = $1`
 	err := r.pool.QueryRow(ctx, sql, id).Scan(
 		&user.Id,
@@ -81,8 +81,8 @@ func (r *userRepositoryImpl) GetById(ctx context.Context, id uuid.UUID) (*domain
 	return &user, err
 }
 
-func (r *userRepositoryImpl) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	var user domain.User
+func (r *userRepositoryImpl) GetByEmail(ctx context.Context, email string) (*iam.User, error) {
+	var user iam.User
 	sql := `SELECT * FROM users WHERE email = $1`
 	err := r.pool.QueryRow(ctx, sql, email).Scan(
 		&user.Id,
@@ -128,7 +128,7 @@ func (r *userRepositoryImpl) Exists(ctx context.Context, email string) (bool, er
 	return exists, nil
 }
 
-func (r *userRepositoryImpl) Update(ctx context.Context, user *domain.User) error {
+func (r *userRepositoryImpl) Update(ctx context.Context, user *iam.User) error {
 	sql := `
 		UPDATE users
 		SET 

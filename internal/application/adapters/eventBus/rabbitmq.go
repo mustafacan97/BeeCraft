@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	eventBus "platform/internal/application/ports/services"
-	domainEvents "platform/internal/domain/events"
+	"platform/internal/domain"
 
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -75,7 +75,7 @@ func NewRabbitMQEventBus(exchangeName string) eventBus.EventBus {
 }
 
 // Publish sends an event to the exchange.
-func (b *rabbitMQEventBus) Publish(ctx context.Context, event domainEvents.Event) error {
+func (b *rabbitMQEventBus) Publish(ctx context.Context, event domain.Event) error {
 	body, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -84,10 +84,10 @@ func (b *rabbitMQEventBus) Publish(ctx context.Context, event domainEvents.Event
 	// Message should send to all services listening to this event
 	// routingKey := event.Name
 	return b.channel.Publish(
-		b.exchange, // Exchange name
-		event.Name, // Routing key
-		false,      // Mandatory
-		false,      // Immediate
+		b.exchange,           // Exchange name
+		event.GetEventType(), // Routing key
+		false,                // Mandatory
+		false,                // Immediate
 		amqp.Publishing{
 			ContentType: "application/json",
 			Body:        body,
@@ -96,7 +96,7 @@ func (b *rabbitMQEventBus) Publish(ctx context.Context, event domainEvents.Event
 }
 
 // Subscribe listens for messages with a routing key.
-func (b *rabbitMQEventBus) Subscribe(subscriber, eventName string, handler func(ctx context.Context, event domainEvents.Event) error) (string, error) {
+func (b *rabbitMQEventBus) Subscribe(subscriber, eventName string, handler func(ctx context.Context, event domain.Event) error) (string, error) {
 	queueName := eventName + "." + subscriber
 	q, err := b.channel.QueueDeclare(
 		queueName, // queue name
@@ -125,9 +125,14 @@ func (b *rabbitMQEventBus) Subscribe(subscriber, eventName string, handler func(
 
 	go func() {
 		for d := range msgs {
-			var event domainEvents.Event
-			if err := json.Unmarshal(d.Body, &event); err == nil {
-				handler(context.Background(), event)
+			var baseEvent domain.BaseEvent
+			if err := json.Unmarshal(d.Body, &baseEvent); err == nil {
+				handler(context.Background(), &baseEvent)
+			} else {
+				zap.L().Error("Failed to unmarshal incoming event",
+					zap.ByteString("raw_message", d.Body),
+					zap.Error(err),
+				)
 			}
 		}
 	}()
