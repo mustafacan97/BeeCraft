@@ -26,3 +26,7 @@ func NewEmail(value string) (Email, error) {
 func (e Email) GetAtomicValues() []interface{} {
 	return []any{e.value}
 }
+
+func (e Email) GetValue() string {
+	return e.value
+}

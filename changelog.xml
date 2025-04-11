@@ -23,4 +23,22 @@
             stripComments="true" />
     </changeSet>
 
+    <changeSet id="3" author="Mustafa">
+        <sqlFile dbms="postgresql"
+            encoding="UTF-8" 
+            path="./internal/notification/migrations/0604202501-initial-tables.sql" 
+            relativeToChangelogFile="true"
+            splitStatements="true"
+            stripComments="true" />
+    </changeSet>
+
+    <changeSet id="4" author="Mustafa">
+        <sqlFile dbms="postgresql"
+            encoding="UTF-8"
+            path="./internal/notification/migrations/0604202502-seed-data.sql"
+            relativeToChangelogFile="true"
+            splitStatements="false"
+            stripComments="true" />
+    </changeSet>
+
 </databaseChangeLog>
