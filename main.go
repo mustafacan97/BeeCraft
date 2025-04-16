@@ -9,9 +9,14 @@ import (
 	"time"
 
 	"platform/configs"
-	eventBusAdapter "platform/internal/application/adapters/eventBus"
 	"platform/internal/application/adapters/postgresql"
 	"platform/internal/application/handlers"
+	baseHandler "platform/internal/shared/handlers"
+	eventBusAdapter "platform/pkg/services/eventbus"
+
+	notificationHandlers "platform/internal/notification/handlers"
+
+	notificationRepositories "platform/internal/notification/repositories"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
@@ -64,12 +69,18 @@ func main() {
 	// PostgreSQL Repositories
 	userRepository := postgresql.NewUserRepository(dbPool)
 	roleRepository := postgresql.NewRoleRepository(dbPool)
+	emailAccountRepository := notificationRepositories.NewPgEmailAccountRepository(dbPool)
 
 	// Handlers
 	registerHandler := handlers.NewRegisterHandler(&bus, &userRepository, &roleRepository)
+	oauthUrlHandler := notificationHandlers.NewOAuthUrlHandler()
+	oauthCallbackHandler := notificationHandlers.NewOAuthCallbackHandler(&emailAccountRepository)
 
 	// Routes
 	app.Post("/register", handlers.Serve(registerHandler))
+	app.Get("/test", func(c *fiber.Ctx) error { return c.SendString("Hello, World!") })
+	app.Post("/oauth", baseHandler.Serve(oauthUrlHandler))
+	app.Get("/oauth-callback", baseHandler.Serve(oauthCallbackHandler))
 
 	// Run server in a goroutine
 	go func() {
