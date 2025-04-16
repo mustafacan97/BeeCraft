@@ -1,4 +1,4 @@
-package configs
+package logging
 
 import (
 	"os"
@@ -7,8 +7,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// initializes logger as a global logger instance.
-func InitializeLogConfig() {
+func InitializeLogging() {
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.TimeKey = "timestamp"
 	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -29,10 +28,4 @@ func InitializeLogConfig() {
 
 	logger := zap.Must(config.Build())
 	zap.ReplaceGlobals(logger) // Set as the global logger
-
-	// defer only runs at the end of the function where it's called
-	// in main(), defer statements are executed when main() exits.
-	// however, init() functions do not wait for main() and finish execution immediately.
-	// so we will do it in main()
-	// defer logger.Sync()
 }

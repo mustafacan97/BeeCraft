@@ -29,9 +29,9 @@ type RegisterHandler struct {
 	roleRepository repositories.RoleRepository
 }
 
-func NewRegisterHandler(eventBus *eventBus.EventBus, userRepository *repositories.UserRepository, roleRepository *repositories.RoleRepository) *RegisterHandler {
+func NewRegisterHandler(eventBus eventBus.EventBus, userRepository *repositories.UserRepository, roleRepository *repositories.RoleRepository) *RegisterHandler {
 	return &RegisterHandler{
-		eventBus:       *eventBus,
+		eventBus:       eventBus,
 		userRepository: *userRepository,
 		roleRepository: *roleRepository,
 	}
