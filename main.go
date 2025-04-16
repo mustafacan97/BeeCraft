@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"platform/configs"
-	"platform/internal/application/adapters/postgresql"
-	"platform/internal/application/handlers"
 	baseHandler "platform/internal/shared/handlers"
 	eventBusAdapter "platform/pkg/services/eventbus"
 
+	iamHandlers "platform/internal/iam/handlers"
 	notificationHandlers "platform/internal/notification/handlers"
 
+	iamRepositories "platform/internal/iam/repositories"
 	notificationRepositories "platform/internal/notification/repositories"
 
 	"github.com/gofiber/fiber/v2"
@@ -67,17 +67,17 @@ func main() {
 	defer dbPool.Close()
 
 	// PostgreSQL Repositories
-	userRepository := postgresql.NewUserRepository(dbPool)
-	roleRepository := postgresql.NewRoleRepository(dbPool)
+	userRepository := iamRepositories.NewUserRepository(dbPool)
+	roleRepository := iamRepositories.NewRoleRepository(dbPool)
 	emailAccountRepository := notificationRepositories.NewPgEmailAccountRepository(dbPool)
 
 	// Handlers
-	registerHandler := handlers.NewRegisterHandler(&bus, &userRepository, &roleRepository)
+	registerHandler := iamHandlers.NewRegisterHandler(&bus, &userRepository, &roleRepository)
 	oauthUrlHandler := notificationHandlers.NewOAuthUrlHandler()
 	oauthCallbackHandler := notificationHandlers.NewOAuthCallbackHandler(&emailAccountRepository)
 
 	// Routes
-	app.Post("/register", handlers.Serve(registerHandler))
+	app.Post("/register", baseHandler.Serve(registerHandler))
 	app.Get("/test", func(c *fiber.Ctx) error { return c.SendString("Hello, World!") })
 	app.Post("/oauth", baseHandler.Serve(oauthUrlHandler))
 	app.Get("/oauth-callback", baseHandler.Serve(oauthCallbackHandler))

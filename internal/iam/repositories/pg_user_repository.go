@@ -1,11 +1,11 @@
-package postgresql
+package repositories
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"platform/internal/application/ports/repositories"
-	"platform/internal/domain/iam"
+	"platform/internal/iam/domain"
+	"platform/internal/shared"
 	"strings"
 	"time"
 
@@ -14,15 +14,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type userRepositoryImpl struct {
+type PgUserRepository struct {
 	pool *pgxpool.Pool
 }
 
-func NewUserRepository(pool *pgxpool.Pool) repositories.UserRepository {
-	return &userRepositoryImpl{pool: pool}
+func NewUserRepository(pool *pgxpool.Pool) UserRepository {
+	return &PgUserRepository{pool: pool}
 }
 
-func (r *userRepositoryImpl) Create(ctx context.Context, user *iam.User) error {
+func (r *PgUserRepository) Create(ctx context.Context, user *domain.User) error {
 	if len(user.Roles) == 0 {
 		return errors.New("user must have at least a role")
 	}
@@ -34,14 +34,14 @@ func (r *userRepositoryImpl) Create(ctx context.Context, user *iam.User) error {
 	for i, role := range user.Roles {
 		paramIdx := i * 2
 		valueStrings[i] = fmt.Sprintf("($%d, $%d)", paramIdx+1, paramIdx+2)
-		valueArgs = append(valueArgs, user.Id.String(), role.Id)
+		valueArgs = append(valueArgs, user.ID.String(), role.Id)
 	}
 
 	userSql := "INSERT INTO users (id, email, email_validated, phone_validated, gender, password_hash, failed_login_attempts, is_system_user, created_at, active, deleted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
 	roleSql := "INSERT INTO user_role_mappings (user_id, role_id) VALUES " + strings.Join(valueStrings, ",")
 
-	return runInTransaction(ctx, r.pool, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, userSql, user.Id, user.Email, false, false, user.Gender, user.PasswordHash, 0, false, time.Now(), true, false)
+	return shared.RunInTransaction(ctx, r.pool, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, userSql, user.ID, user.Email, false, false, user.Gender, user.PasswordHash, 0, false, time.Now(), true, false)
 		if err != nil {
 			return err
 		}
@@ -51,11 +51,11 @@ func (r *userRepositoryImpl) Create(ctx context.Context, user *iam.User) error {
 	})
 }
 
-func (r *userRepositoryImpl) GetById(ctx context.Context, id uuid.UUID) (*iam.User, error) {
-	var user iam.User
+func (r *PgUserRepository) GetById(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+	var user domain.User
 	sql := `SELECT * FROM users WHERE id = $1`
 	err := r.pool.QueryRow(ctx, sql, id).Scan(
-		&user.Id,
+		&user.ID,
 		&user.FirstName,
 		&user.LastName,
 		&user.Email,
@@ -81,11 +81,11 @@ func (r *userRepositoryImpl) GetById(ctx context.Context, id uuid.UUID) (*iam.Us
 	return &user, err
 }
 
-func (r *userRepositoryImpl) GetByEmail(ctx context.Context, email string) (*iam.User, error) {
-	var user iam.User
+func (r *PgUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	var user domain.User
 	sql := `SELECT * FROM users WHERE email = $1`
 	err := r.pool.QueryRow(ctx, sql, email).Scan(
-		&user.Id,
+		&user.ID,
 		&user.FirstName,
 		&user.LastName,
 		&user.Email,
@@ -116,7 +116,7 @@ func (r *userRepositoryImpl) GetByEmail(ctx context.Context, email string) (*iam
 	return &user, err
 }
 
-func (r *userRepositoryImpl) Exists(ctx context.Context, email string) (bool, error) {
+func (r *PgUserRepository) Exists(ctx context.Context, email string) (bool, error) {
 	var exists bool
 	query := `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`
 
@@ -128,7 +128,7 @@ func (r *userRepositoryImpl) Exists(ctx context.Context, email string) (bool, er
 	return exists, nil
 }
 
-func (r *userRepositoryImpl) Update(ctx context.Context, user *iam.User) error {
+func (r *PgUserRepository) Update(ctx context.Context, user *domain.User) error {
 	sql := `
 		UPDATE users
 		SET 
@@ -180,7 +180,7 @@ func (r *userRepositoryImpl) Update(ctx context.Context, user *iam.User) error {
 	return err
 }
 
-func (r *userRepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *PgUserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	sql := `DELETE FROM users WHERE id = $1`
 	_, err := r.pool.Exec(ctx, sql, id)
 	return err

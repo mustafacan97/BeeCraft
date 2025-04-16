@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"platform/internal/application/ports/repositories"
-	eventBus "platform/internal/application/ports/services"
-	"platform/internal/domain/iam"
-	"platform/internal/enum"
+	"platform/internal/iam/domain"
+	"platform/internal/iam/domain/domain_event"
+	"platform/internal/iam/domain/enum"
+	"platform/internal/iam/repositories"
+	baseHandler "platform/internal/shared/handlers"
+	eventBus "platform/pkg/services/eventbus"
 )
 
 type RegisterRequest struct {
@@ -35,7 +37,7 @@ func NewRegisterHandler(eventBus *eventBus.EventBus, userRepository *repositorie
 	}
 }
 
-func (h *RegisterHandler) Handle(ctx context.Context, req *RegisterRequest) (*Response[RegisterResponse], error) {
+func (h *RegisterHandler) Handle(ctx context.Context, req *RegisterRequest) (*baseHandler.Response[RegisterResponse], error) {
 	registeredRole, err := h.roleRepository.GetSystemRoleByName(ctx, enum.REGISTERED)
 	if err != nil {
 		return nil, fmt.Errorf("an error occurred on registration process: %w", err)
@@ -51,10 +53,10 @@ func (h *RegisterHandler) Handle(ctx context.Context, req *RegisterRequest) (*Re
 	}
 
 	if exists {
-		return ConflictResponse[RegisterResponse]("user already exists"), nil
+		return baseHandler.ConflictResponse[RegisterResponse]("user already exists"), nil
 	}
 
-	user, err := iam.NewUser(req.Email, req.Password, []iam.Role{*registeredRole})
+	user, err := domain.NewUser(req.Email, req.Password, []domain.Role{*registeredRole})
 	if err != nil {
 		return nil, fmt.Errorf("an error occurred on registration process: %w", err)
 	}
@@ -64,8 +66,8 @@ func (h *RegisterHandler) Handle(ctx context.Context, req *RegisterRequest) (*Re
 		return nil, fmt.Errorf("an error occurred on registration process: %w", err)
 	}
 
-	event := iam.NewUserRegisteredEvent(user.Id.String(), user.Email)
+	event := domain_event.NewUserRegisteredEvent(user.ID.String(), user.Email)
 	h.eventBus.Publish(ctx, event)
 
-	return CreatedResponseWithoutData[RegisterResponse](), nil
+	return baseHandler.CreatedResponseWithoutData[RegisterResponse](), nil
 }

@@ -1,4 +1,4 @@
-package iam
+package domain
 
 type Role struct {
 	Id        int

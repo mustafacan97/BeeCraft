@@ -1,11 +1,13 @@
-package iam
+package domain
 
 import (
 	"errors"
 	"time"
 
-	"platform/internal/domain"
-	"platform/internal/enum"
+	"platform/internal/iam/domain/enum"
+	valueobject "platform/internal/iam/domain/value_object"
+
+	"platform/pkg/domain"
 
 	"github.com/google/uuid"
 )
@@ -23,7 +25,7 @@ const (
 )
 
 type User struct {
-	domain.BaseAggregateRoot
+	domain.AggregateRoot
 	FirstName            *string
 	LastName             *string
 	Email                string
@@ -50,7 +52,7 @@ type User struct {
 }
 
 func NewUser(email, rawPassword string, roles []Role) (*User, error) {
-	password, err := NewPassword(rawPassword)
+	password, err := valueobject.NewPassword(rawPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -61,9 +63,7 @@ func NewUser(email, rawPassword string, roles []Role) (*User, error) {
 	}
 
 	user := &User{
-		BaseAggregateRoot: domain.BaseAggregateRoot{
-			Id: uuid.New(),
-		},
+		AggregateRoot:        domain.NewAggregateRoot(uuid.New()),
 		FirstName:            nil,
 		LastName:             nil,
 		Email:                email,
@@ -93,7 +93,7 @@ func NewUser(email, rawPassword string, roles []Role) (*User, error) {
 }
 
 func (u *User) Authenticate(rawPassword string) bool {
-	password := Password(rawPassword)
+	password := valueobject.Password(rawPassword)
 	return password.Matches(u.PasswordHash)
 }
 
@@ -103,7 +103,7 @@ func (u *User) ChangePassword(rawOldPassword, rawNewPassword string) error {
 		return ErrInvalidPassword
 	}
 
-	newPassword, err := NewPassword(rawNewPassword)
+	newPassword, err := valueobject.NewPassword(rawNewPassword)
 	if err != nil {
 		return err
 	}
