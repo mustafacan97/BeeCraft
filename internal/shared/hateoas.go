@@ -8,4 +8,8 @@ type HALLink struct {
 	Templated bool   `json:"templated,omitempty"` // If true, it means that the URL contains a parameter
 }
 
+type HALResource struct {
+	Links HALLinks `json:"_links"`
+}
+
 type HALLinks map[string]HALLink

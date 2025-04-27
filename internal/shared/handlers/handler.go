@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -31,7 +32,12 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 
 		// If projectID exists in header, save it to context
 		if projectID := c.Get(shared.ProjectIDHeader); projectID != "" {
-			ctx = context.WithValue(ctx, shared.ProjectIDContextKey, projectID)
+			parsedProjectID, err := uuid.Parse(projectID)
+			if err == nil {
+				ctx = context.WithValue(ctx, shared.ProjectIDContextKey, parsedProjectID)
+			} else {
+				// TODO: log here!
+			}
 		}
 
 		if err := c.BodyParser(&req); err != nil && !errors.Is(err, fiber.ErrUnprocessableEntity) {

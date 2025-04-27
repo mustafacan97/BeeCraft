@@ -54,7 +54,7 @@ func (p *pgEmailAccountRepository) GetAll(ctx context.Context) ([]*domain.EmailA
 }
 
 func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email valueobject.Email) (*domain.EmailAccount, error) {
-	projectID, _ := ctx.Value(shared.ProjectIDContextKey).(string)
+	projectID, _ := ctx.Value(shared.ProjectIDContextKey).(uuid.UUID)
 	sql := "SELECT * FROM notification.email_accounts WHERE project_id = $1 AND email = $2"
 	rows, err := p.pool.Query(ctx, sql, projectID, email.GetValue())
 	if err != nil {
