@@ -3,9 +3,12 @@ package main
 import (
 	baseHandler "platform/internal/shared/handlers"
 	event_bus "platform/pkg/services/eventbus"
+	mediator "platform/pkg/services/mediator"
 
 	iamHandlers "platform/internal/iam/handlers"
+	"platform/internal/notification/commands"
 	notificationHandlers "platform/internal/notification/handlers"
+	"platform/internal/notification/queries"
 
 	iamRepositories "platform/internal/iam/repositories"
 	notificationRepositories "platform/internal/notification/repositories"
@@ -21,10 +24,14 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 	roleRepository := iamRepositories.NewRoleRepository(dbPool)
 	emailAccountRepository := notificationRepositories.NewPgEmailAccountRepository(dbPool)
 
+	// Mediator
+	getEmailAccountByEmailQueryHandler := queries.NewGetEmailAccountByEmailQueryHandler(emailAccountRepository)
+	createEmailAccountCommandHandler := commands.NewCreateEmailAccountCommandHandler(emailAccountRepository)
+	mediator.RegisterRequestHandler(getEmailAccountByEmailQueryHandler)
+	mediator.RegisterRequestHandler(createEmailAccountCommandHandler)
+
 	// Handlers
 	registerHandler := iamHandlers.NewRegisterHandler(bus, &userRepository, &roleRepository)
-	oauthUrlHandler := notificationHandlers.NewOAuthUrlHandler()
-	oauthCallbackHandler := notificationHandlers.NewOAuthCallbackHandler(&emailAccountRepository)
 
 	// Health-check
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -43,6 +50,12 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 	// Notification Service Routes
 	notificationGroup := version1.Group("/notification")
 	{
+		// Handlers
+		createHandler := &notificationHandlers.CreateEmailAccountHandler{}
+		oauthUrlHandler := notificationHandlers.NewOAuthUrlHandler()
+		oauthCallbackHandler := notificationHandlers.NewOAuthCallbackHandler(&emailAccountRepository)
+
+		notificationGroup.Post("/email-account", baseHandler.Serve(createHandler))
 		notificationGroup.Post("/oauth", baseHandler.Serve(oauthUrlHandler))
 		notificationGroup.Get("/oauth-callback", baseHandler.Serve(oauthCallbackHandler))
 	}

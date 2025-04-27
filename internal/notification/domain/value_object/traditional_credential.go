@@ -8,8 +8,6 @@ import (
 	"errors"
 	"io"
 	"platform/pkg/domain"
-
-	"go.uber.org/zap"
 )
 
 type TraditionalCredential struct {
@@ -18,31 +16,36 @@ type TraditionalCredential struct {
 	password string
 }
 
-func NewTraditionalCredential(username, rawPassword string, secretKey []byte) *TraditionalCredential {
-	encrypted, err := encryptAES(rawPassword, secretKey)
-	if err != nil {
-		zap.L().Error("failed to encrypt password",
-			zap.String("username", username),
-			zap.Error(err),
-		)
-		return nil
-	}
+func NewTraditionalCredentials(username, password string) *TraditionalCredential {
 	return &TraditionalCredential{
 		username: username,
-		password: encrypted,
+		password: password,
 	}
 }
 
-func (e *TraditionalCredential) GetCredentials(secretKey []byte) (string, string) {
-	decrypted, err := decryptAES(e.password, secretKey)
+func EncryptPassword(rawPassword string, secretKey []byte) (*string, error) {
+	encrypted, err := encryptAES(rawPassword, secretKey)
 	if err != nil {
-		zap.L().Error("failed to decrypt password",
-			zap.String("username", e.username),
-			zap.Error(err),
-		)
-		return "", ""
+		return nil, err
 	}
-	return e.username, decrypted
+	return &encrypted, nil
+}
+
+func DecryptPassword(password string, secretKey []byte) (*string, error) {
+	decrypted, err := decryptAES(password, secretKey)
+	if err != nil {
+		return nil, err
+	}
+	return &decrypted, nil
+}
+
+func (e *TraditionalCredential) SetTraditionalCredentials(username, password string) {
+	e.username = username
+	e.password = password
+}
+
+func (e *TraditionalCredential) GetCredentials() (string, string) {
+	return e.username, e.password
 }
 
 func (e *TraditionalCredential) GetAtomicValues() []interface{} {

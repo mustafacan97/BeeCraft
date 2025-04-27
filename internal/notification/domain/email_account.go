@@ -19,27 +19,27 @@ const (
 
 type EmailAccount struct {
 	domain.AggregateRoot
-	projectID             uuid.UUID
-	typeID                int
-	email                 valueobject.Email
-	displayName           string
-	host                  string
-	port                  int
-	enableSsl             bool
-	createdAt             time.Time
-	TraditionalCredential *internalValueObject.TraditionalCredential
-	OAuthCredentials      *internalValueObject.OAuthCredential
-	TokenInformation      *internalValueObject.TokenInformation
-	emailTemplates        []EmailTemplate
-	queuedEmails          []QueuedEmail
+	projectID              uuid.UUID
+	typeID                 int
+	Email                  valueobject.Email
+	displayName            string
+	host                   string
+	port                   int
+	enableSsl              bool
+	createdAt              time.Time
+	TraditionalCredentials *internalValueObject.TraditionalCredential
+	OAuth2Credentials      *internalValueObject.OAuth2Credential
+	TokenInformation       *internalValueObject.TokenInformation
+	emailTemplates         []EmailTemplate
+	queuedEmails           []QueuedEmail
 }
 
-func NewEmailAccount(projectID uuid.UUID, typeID int, email valueobject.Email, displayName, host string, port int, enableSSL bool) *EmailAccount {
+func NewEmailAccount(id uuid.UUID, projectID uuid.UUID, typeID int, email valueobject.Email, displayName, host string, port int, enableSSL bool) *EmailAccount {
 	return &EmailAccount{
-		AggregateRoot: domain.NewAggregateRoot(uuid.New()),
+		AggregateRoot: domain.NewAggregateRoot(id),
 		projectID:     projectID,
 		typeID:        typeID,
-		email:         email,
+		Email:         email,
 		displayName:   displayName,
 		host:          host,
 		port:          port,
@@ -48,26 +48,17 @@ func NewEmailAccount(projectID uuid.UUID, typeID int, email valueobject.Email, d
 	}
 }
 
-func EmailAccountFromDB(id uuid.UUID, projectID uuid.UUID, typeID int, email valueobject.Email, displayName, host string, port int, enableSSL bool, createdAt time.Time) *EmailAccount {
-	return &EmailAccount{
-		AggregateRoot: domain.NewAggregateRoot(id),
-		projectID:     projectID,
-		typeID:        typeID,
-		email:         email,
-		displayName:   displayName,
-		host:          host,
-		port:          port,
-		enableSsl:     enableSSL,
-		createdAt:     createdAt,
-	}
-}
+// GETTERS
+func (ea *EmailAccount) GetProjectID() uuid.UUID        { return ea.projectID }
+func (ea *EmailAccount) GetSmtpType() int               { return ea.typeID }
+func (ea *EmailAccount) GetDisplayName() string         { return ea.displayName }
+func (ea *EmailAccount) GetHost() string                { return ea.host }
+func (ea *EmailAccount) GetPort() int                   { return ea.port }
+func (ea *EmailAccount) GetAddress() string             { return fmt.Sprintf("%s:%d", ea.host, ea.port) }
+func (ea *EmailAccount) IsSslEnabled() bool             { return ea.enableSsl }
+func (ea *EmailAccount) GetCreatedDate() time.Time      { return ea.createdAt }
+func (ea *EmailAccount) GetTemplates() []EmailTemplate  { return ea.emailTemplates }
+func (ea *EmailAccount) GetQueuedEmails() []QueuedEmail { return ea.queuedEmails }
 
-func (ea *EmailAccount) GetProjectID() uuid.UUID { return ea.projectID }
-func (ea *EmailAccount) GetTypeID() int          { return ea.typeID }
-func (ea *EmailAccount) GetEmail() string        { return ea.email.GetValue() }
-func (ea *EmailAccount) GetDisplayName() string  { return ea.displayName }
-func (ea *EmailAccount) GetHost() string         { return ea.host }
-func (ea *EmailAccount) GetPort() int            { return ea.port }
-func (ea *EmailAccount) GetAddr() string         { return fmt.Sprintf("%s:%d", ea.host, ea.port) }
-func (ea *EmailAccount) GetCreatedAt() time.Time { return ea.createdAt }
-func (ea *EmailAccount) IsSslEnabled() bool      { return ea.enableSsl }
+// SETTERS
+func (ea *EmailAccount) SetCreatedAt(createdAt time.Time) { ea.createdAt = createdAt }

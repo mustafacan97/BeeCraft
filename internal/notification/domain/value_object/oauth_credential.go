@@ -2,25 +2,25 @@ package valueobject
 
 import "platform/pkg/domain"
 
-type OAuthCredential struct {
+type OAuth2Credential struct {
 	domain.BaseValueObject
 	clientID     string
-	clientSecret string
 	tenantID     string
+	clientSecret string
 }
 
-func NewOAuthCredential(clientID, clientSecret, tenantID string) *OAuthCredential {
-	return &OAuthCredential{
+func NewOAuth2Credentials(clientID, tenantID, clientSecret string) *OAuth2Credential {
+	return &OAuth2Credential{
 		clientID:     clientID,
-		clientSecret: clientSecret,
 		tenantID:     tenantID,
+		clientSecret: clientSecret,
 	}
 }
 
-func (e *OAuthCredential) GetCredentials() (string, string, string) {
-	return e.clientID, e.clientSecret, e.tenantID
+func (e *OAuth2Credential) GetCredentials() (clientID, tenantID, clientSecret string) {
+	return e.clientID, e.tenantID, e.clientSecret
 }
 
-func (e *OAuthCredential) GetAtomicValues() []interface{} {
-	return []any{e.clientID, e.clientSecret, e.tenantID}
+func (e *OAuth2Credential) GetAtomicValues() []interface{} {
+	return []any{e.clientID, e.tenantID, e.clientSecret}
 }

@@ -171,7 +171,7 @@ func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
 
 	// If SSL is enabled (implicit TLS), use tls.Dial. Otherwise use net.Dial.
 	if ea.IsSslEnabled() {
-		conn, err := tls.Dial("tcp", ea.GetAddr(), tlsConfig)
+		conn, err := tls.Dial("tcp", ea.GetAddress(), tlsConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +180,7 @@ func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
 			return nil, err
 		}
 	} else {
-		conn, err := net.Dial("tcp", ea.GetAddr())
+		conn, err := net.Dial("tcp", ea.GetAddress())
 		if err != nil {
 			return nil, err
 		}
@@ -198,10 +198,14 @@ func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
 	}
 
 	// Authenticate based on the email account type.
-	switch ea.GetTypeID() {
+	switch ea.GetSmtpType() {
 	case domain.Login:
-		username, password := ea.TraditionalCredential.GetCredentials([]byte(ea.GetEmail()))
-		auth := smtp.PlainAuth("", username, password, ea.GetHost())
+		username, password := ea.TraditionalCredentials.GetCredentials()
+		rawPassword, err := internalValueObject.DecryptPassword(password, []byte(ea.Email.GetValue()))
+		if err != nil {
+			return nil, err
+		}
+		auth := smtp.PlainAuth("", username, *rawPassword, ea.GetHost())
 		if err := client.Auth(auth); err != nil {
 			return nil, err
 		}
@@ -211,7 +215,7 @@ func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := client.Auth(NewOAuth2Auth(ea.GetEmail(), token.AccessToken)); err != nil {
+		if err := client.Auth(NewOAuth2Auth(ea.Email.GetValue(), token.AccessToken)); err != nil {
 			return nil, err
 		}
 	default:
@@ -222,8 +226,8 @@ func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
 }
 
 func getOAuth2Credentials(emailAccount *domain.EmailAccount) (*oauth2.Token, error) {
-	accountType := emailAccount.GetTypeID()
-	clientID, clientSecret, tenantID := emailAccount.OAuthCredentials.GetCredentials()
+	accountType := emailAccount.GetSmtpType()
+	clientID, clientSecret, tenantID := emailAccount.OAuth2Credentials.GetCredentials()
 	if clientID == "" || clientSecret == "" {
 		return nil, errors.New("ClientId and ClientSecret are required")
 	}

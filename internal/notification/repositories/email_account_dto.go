@@ -2,170 +2,167 @@ package repositories
 
 import (
 	"platform/internal/notification/domain"
-	internalValueObject "platform/internal/notification/domain/value_object"
+	internalValueObjects "platform/internal/notification/domain/value_object"
 	"platform/pkg/domain/valueobject"
 	"time"
 
 	"github.com/google/uuid"
 )
 
+// EmailAccountDTO maps database rows to domain objects and back.
 type EmailAccountDTO struct {
-	id           uuid.UUID  `db:"id"`
-	projectID    uuid.UUID  `db:"project_id"`
-	email        string     `db:"email"`
-	displayName  string     `db:"display_name"`
-	host         string     `db:"host"`
-	port         int        `db:"port"`
-	typeID       int        `db:"type_id"`
-	enableSsl    bool       `db:"enable_ssl"`
-	createdAt    time.Time  `db:"created_at"`
-	username     *string    `db:"username"`
-	password     *string    `db:"password"`
-	clientID     *string    `db:"client_id"`
-	clientSecret *string    `db:"client_secret"`
-	tenantID     *string    `db:"tenant_id"`
-	accessToken  *string    `db:"access_token"`
-	refreshToken *string    `db:"refresh_token"`
-	expireAt     *time.Time `db:"token_expire_at"`
+	ID           uuid.UUID  `db:"id"`
+	ProjectID    uuid.UUID  `db:"project_id"`
+	Email        string     `db:"email"`
+	DisplayName  string     `db:"display_name"`
+	Host         string     `db:"host"`
+	Port         int        `db:"port"`
+	EnableSsl    bool       `db:"enable_ssl"`
+	TypeID       int        `db:"type_id"`
+	Username     *string    `db:"username"`
+	Password     *string    `db:"password"`
+	ClientID     *string    `db:"client_id"`
+	TenantID     *string    `db:"tenant_id"`
+	ClientSecret *string    `db:"client_secret"`
+	AccessToken  *string    `db:"access_token"`
+	RefreshToken *string    `db:"refresh_token"`
+	ExpireAt     *time.Time `db:"expire_at"`
+	CreatedAt    time.Time  `db:"created_at"`
 }
 
-func (dto *EmailAccountDTO) ToDomain() (*domain.EmailAccount, error) {
-	email, err := valueobject.NewEmail(dto.email)
-	if err != nil {
-		return nil, err
-	}
+// ToDomain converts the DTO into a domain EmailAccount.
+func (dto *EmailAccountDTO) ToDomain() *domain.EmailAccount {
+	email, _ := valueobject.NewEmail(dto.Email)
+	emailAccount := domain.NewEmailAccount(dto.ID, dto.ProjectID, dto.TypeID, email, dto.DisplayName, dto.Host, dto.Port, dto.EnableSsl)
+	emailAccount.SetCreatedAt(dto.CreatedAt)
 
-	emailAccount := domain.EmailAccountFromDB(
-		dto.id,
-		dto.projectID,
-		dto.typeID,
-		email,
-		dto.displayName,
-		dto.host,
-		dto.port,
-		dto.enableSsl,
-		dto.createdAt)
+	dto.applyTraditionalCredentials(emailAccount)
+	dto.applyOAuth2Credentials(emailAccount)
+	dto.applyTokenInformation(emailAccount)
 
-	switch dto.typeID {
-	case domain.Login:
-		dto.applyLogin(emailAccount)
-	case domain.GmailOAuth2:
-	case domain.MicrosoftOAuth2:
-		dto.applyOAuth2(emailAccount)
-		dto.applyTokenInformation(emailAccount)
-	}
-
-	return emailAccount, nil
+	return emailAccount
 }
 
+// Convert from entity to database row
 func ToDTO(emailAccount *domain.EmailAccount) *EmailAccountDTO {
-	emailAccountDTO := &EmailAccountDTO{
-		id:          emailAccount.GetID(),
-		projectID:   emailAccount.GetProjectID(),
-		email:       emailAccount.GetEmail(),
-		displayName: emailAccount.GetDisplayName(),
-		host:        emailAccount.GetHost(),
-		port:        emailAccount.GetPort(),
-		typeID:      emailAccount.GetTypeID(),
-		enableSsl:   emailAccount.IsSslEnabled(),
-		createdAt:   emailAccount.GetCreatedAt(),
+	dto := &EmailAccountDTO{
+		ID:          emailAccount.GetID(),
+		ProjectID:   emailAccount.GetProjectID(),
+		Email:       emailAccount.Email.GetValue(),
+		DisplayName: emailAccount.GetDisplayName(),
+		Host:        emailAccount.GetHost(),
+		Port:        emailAccount.GetPort(),
+		TypeID:      emailAccount.GetSmtpType(),
+		EnableSsl:   emailAccount.IsSslEnabled(),
+		CreatedAt:   emailAccount.GetCreatedDate(),
 	}
 
-	username, password := emailAccount.TraditionalCredential.GetCredentials([]byte(emailAccount.GetEmail()))
-	if username != "" {
-		emailAccountDTO.username = &username
-	}
-	if password != "" {
-		emailAccountDTO.password = &password
+	if emailAccount.TraditionalCredentials != nil {
+		username, password := emailAccount.TraditionalCredentials.GetCredentials()
+		dto.Username = ptrToStringValue(username)
+		dto.Password = ptrToStringValue(password)
 	}
 
-	accessToken, refreshToken, expireAt := emailAccount.TokenInformation.GetTokenInformation()
-	if accessToken != "" {
-		emailAccountDTO.accessToken = &accessToken
-	}
-	if refreshToken != "" {
-		emailAccountDTO.refreshToken = &refreshToken
-	}
-	if !expireAt.IsZero() {
-		emailAccountDTO.expireAt = &expireAt
+	if emailAccount.OAuth2Credentials != nil {
+		clientID, tenantID, clientSecret := emailAccount.OAuth2Credentials.GetCredentials()
+		dto.ClientID = ptrToStringValue(clientID)
+		dto.TenantID = ptrToStringValue(tenantID)
+		dto.ClientSecret = ptrToStringValue(clientSecret)
 	}
 
-	clientID, clientSecret, tenantID := emailAccount.OAuthCredentials.GetCredentials()
-	if clientID != "" {
-		emailAccountDTO.clientID = &clientID
-	}
-	if clientSecret != "" {
-		emailAccountDTO.clientSecret = &clientSecret
-	}
-	if tenantID != "" {
-		emailAccountDTO.tenantID = &tenantID
+	if emailAccount.TokenInformation != nil {
+		accessToken, refreshToken, expireAt := emailAccount.TokenInformation.GetTokenInformation()
+		dto.AccessToken = ptrToStringValue(accessToken)
+		dto.RefreshToken = ptrToStringValue(refreshToken)
+		dto.ExpireAt = ptrToTimeValue(expireAt)
 	}
 
-	return emailAccountDTO
+	return dto
 }
 
+// ToValues returns a flat slice of fields in order for inserts/updates.
 func (dto *EmailAccountDTO) ToValues() []any {
 	return []any{
-		dto.id,
-		dto.projectID,
-		dto.email,
-		dto.displayName,
-		dto.host,
-		dto.port,
-		dto.typeID,
-		dto.enableSsl,
-		dto.createdAt,
-		dto.username,
-		dto.password,
-		dto.clientID,
-		dto.clientSecret,
-		dto.tenantID,
-		dto.accessToken,
-		dto.refreshToken,
-		dto.expireAt,
+		dto.ID,
+		dto.ProjectID,
+		dto.Email,
+		dto.DisplayName,
+		dto.Host,
+		dto.Port,
+		dto.EnableSsl,
+		dto.TypeID,
+		dto.Username,
+		dto.Password,
+		dto.ClientID,
+		dto.TenantID,
+		dto.ClientSecret,
+		dto.AccessToken,
+		dto.RefreshToken,
+		dto.ExpireAt,
+		dto.CreatedAt,
 	}
 }
 
-func (dto *EmailAccountDTO) applyLogin(emailAccount *domain.EmailAccount) {
-	username := ""
-	password := ""
-	if dto.username != nil {
-		username = *dto.username
+func (dto *EmailAccountDTO) applyTraditionalCredentials(ea *domain.EmailAccount) {
+	if ea.GetSmtpType() != domain.Login {
+		return
 	}
-	if dto.password != nil {
-		password = *dto.password
-	}
-	emailAccount.TraditionalCredential = internalValueObject.NewTraditionalCredential(username, password, []byte(dto.email))
+
+	username := ptrToString(dto.Username)
+	password := ptrToString(dto.Password)
+	ea.TraditionalCredentials.SetTraditionalCredentials(username, password)
 }
 
-func (dto *EmailAccountDTO) applyOAuth2(emailAccount *domain.EmailAccount) {
-	clientID := ""
-	clientSecret := ""
-	tenantID := ""
-	if dto.clientID != nil {
-		clientID = *dto.clientID
+func (dto *EmailAccountDTO) applyOAuth2Credentials(ea *domain.EmailAccount) {
+	if ea.GetSmtpType() == domain.Login {
+		return
 	}
-	if dto.clientSecret != nil {
-		clientSecret = *dto.clientSecret
-	}
-	if dto.tenantID != nil {
-		tenantID = *dto.tenantID
-	}
-	emailAccount.OAuthCredentials = internalValueObject.NewOAuthCredential(clientID, clientSecret, tenantID)
+
+	clientID := ptrToString(dto.ClientID)
+	tenantID := ptrToString(dto.TenantID)
+	clientSecret := ptrToString(dto.ClientSecret)
+	ea.OAuth2Credentials = internalValueObjects.NewOAuth2Credentials(clientID, tenantID, clientSecret)
 }
 
-func (dto *EmailAccountDTO) applyTokenInformation(emailAccount *domain.EmailAccount) {
-	accessToken := ""
-	refreshToken := ""
-	expireAt := time.Time{}
-	if dto.accessToken != nil {
-		accessToken = *dto.accessToken
+func (dto *EmailAccountDTO) applyTokenInformation(ea *domain.EmailAccount) {
+	if ea.GetSmtpType() == domain.Login {
+		return
 	}
-	if dto.refreshToken != nil {
-		refreshToken = *dto.refreshToken
+
+	accessToken := ptrToString(dto.AccessToken)
+	refreshToken := ptrToString(dto.RefreshToken)
+	expireAt := ptrToTime(dto.ExpireAt)
+	ea.TokenInformation = internalValueObjects.NewTokenInformation(accessToken, refreshToken, expireAt)
+}
+
+// ptrToString creates a pointer to s if non-nil; otherwise returns nil.
+func ptrToString(s *string) string {
+	if s != nil {
+		return *s
 	}
-	if dto.expireAt != nil {
-		expireAt = *dto.expireAt
+	return ""
+}
+
+// ptrToStringValue returns a *string if the value is non-empty.
+func ptrToStringValue(s string) *string {
+	if s == "" {
+		return nil
 	}
-	emailAccount.TokenInformation = internalValueObject.NewTokenInformation(accessToken, refreshToken, expireAt)
+	return &s
+}
+
+// ptrToTime returns time value or zero.
+func ptrToTime(t *time.Time) time.Time {
+	if t != nil {
+		return *t
+	}
+	return time.Time{}
+}
+
+// ptrToTimeValue returns *time.Time if non-zero.
+func ptrToTimeValue(t time.Time) *time.Time {
+	if !t.IsZero() {
+		return &t
+	}
+	return nil
 }

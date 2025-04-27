@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"platform/internal/shared"
 	"platform/internal/shared/validators"
 
 	"github.com/go-playground/validator/v10"
@@ -26,22 +27,31 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var req I
 
+		ctx := c.UserContext()
+
+		// If projectID exists in header, save it to context
+		if projectID := c.Get(shared.ProjectIDHeader); projectID != "" {
+			ctx = context.WithValue(ctx, shared.ProjectIDContextKey, projectID)
+		}
+
 		if err := c.BodyParser(&req); err != nil && !errors.Is(err, fiber.ErrUnprocessableEntity) {
-			// TODO
+			// TODO: log here
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid JSON body")
 		}
 
 		if err := c.ParamsParser(&req); err != nil {
-			// TODO
+			// TODO: log here
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid URL parameters")
+
 		}
 
 		if err := c.QueryParser(&req); err != nil {
-			// TODO
+			// TODO: log here
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid query parameters")
 		}
 
-		if err := c.ReqHeaderParser(&req); err != nil {
-			// TODO
-		}
-
+		// For validation, I started with Fiber middleware.
+		// If needed in the future, I can move it to Mediator pipeline.
 		if err := validation.Struct(&req); err != nil {
 			// Extract validation errors
 			validationErrors := err.(validator.ValidationErrors)
@@ -69,7 +79,7 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 			}
 		}
 
-		resp, err := h.Handle(c.UserContext(), &req)
+		resp, err := h.Handle(ctx, &req)
 		if err != nil {
 			zap.L().Error("An error occurred during request handling", zap.Error(err))
 			return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": "An unexpected error occurred. Please try again later."})

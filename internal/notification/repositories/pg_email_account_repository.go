@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"platform/internal/notification/domain"
+	"platform/internal/shared"
+	"platform/pkg/domain/valueobject"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -45,25 +47,16 @@ func (p *pgEmailAccountRepository) GetAll(ctx context.Context) ([]*domain.EmailA
 
 	accounts := make([]*domain.EmailAccount, 0, len(dtos))
 	for _, dto := range dtos {
-		account, err := dto.ToDomain()
-		if err != nil {
-			// TODO: log the error
-		} else {
-			accounts = append(accounts, account)
-		}
+		accounts = append(accounts, dto.ToDomain())
 	}
 
 	return accounts, nil
 }
 
-func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email string) (*domain.EmailAccount, error) {
-	projectID, err := getProjectID(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	sql := "SELECT * FROM email_accounts WHERE project_id = $1 AND email = $2"
-	rows, err := p.pool.Query(ctx, sql, projectID, email)
+func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email valueobject.Email) (*domain.EmailAccount, error) {
+	projectID, _ := ctx.Value(shared.ProjectIDContextKey).(string)
+	sql := "SELECT * FROM notification.email_accounts WHERE project_id = $1 AND email = $2"
+	rows, err := p.pool.Query(ctx, sql, projectID, email.GetValue())
 	if err != nil {
 		return nil, err
 	}
@@ -77,13 +70,7 @@ func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email string)
 		return nil, err
 	}
 
-	emailAccount, err := dto.ToDomain()
-	if err != nil {
-		return nil, err
-	}
-
-	return emailAccount, nil
-
+	return dto.ToDomain(), nil
 }
 
 func (p *pgEmailAccountRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.EmailAccount, error) {
@@ -107,34 +94,33 @@ func (p *pgEmailAccountRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 		return nil, err
 	}
 
-	emailAccount, err := dto.ToDomain()
-	if err != nil {
-		return nil, err
-	}
-
-	return emailAccount, nil
+	return dto.ToDomain(), nil
 }
 
 // COMMAND
 func (p *pgEmailAccountRepository) Create(ctx context.Context, account *domain.EmailAccount) error {
-	dto := ToDTO(account)
-
 	query := `
-		INSERT INTO email_accounts (
-			id, project_id, email, display_name, host, port, type_id, enable_ssl, created_at,
-			username, password, 
-			client_id, client_secret, tenant_id,
-			access_token, refresh_token, expire_at
-		)
-		VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9
-			$10, $11, 
-			$12, $13, $14, 
-			$15, $16, $17
-		)
-	`
+		INSERT INTO notification.email_accounts (
+			id,
+			project_id, 
+			email, 
+			display_name,
+			host, 
+			port, 
+			enable_ssl,
+			type_id,
+			username,
+			password,
+			client_id,
+			client_secret,
+			tenant_id,
+			access_token,
+			refresh_token,
+			expire_at,
+			created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`
 
-	_, err := p.pool.Exec(ctx, query, dto.ToValues()...)
+	_, err := p.pool.Exec(ctx, query, ToDTO(account).ToValues()...)
 	return err
 }
 
@@ -173,22 +159,22 @@ func (p *pgEmailAccountRepository) Update(ctx context.Context, account *domain.E
 	`
 
 	values := []any{
-		dto.email,
-		dto.displayName,
-		dto.host,
-		dto.port,
-		dto.typeID,
-		dto.enableSsl,
-		dto.username,
-		dto.password,
-		dto.clientID,
-		dto.clientSecret,
-		dto.tenantID,
-		dto.accessToken,
-		dto.refreshToken,
-		dto.expireAt,
-		dto.id,
-		dto.projectID,
+		dto.Email,
+		dto.DisplayName,
+		dto.Host,
+		dto.Port,
+		dto.TypeID,
+		dto.EnableSsl,
+		dto.Username,
+		dto.Password,
+		dto.ClientID,
+		dto.ClientSecret,
+		dto.TenantID,
+		dto.AccessToken,
+		dto.RefreshToken,
+		dto.ExpireAt,
+		dto.ID,
+		dto.ProjectID,
 	}
 
 	_, err := p.pool.Exec(ctx, query, values...)
@@ -196,7 +182,7 @@ func (p *pgEmailAccountRepository) Update(ctx context.Context, account *domain.E
 }
 
 func getProjectID(ctx context.Context) (uuid.UUID, error) {
-	val := ctx.Value("projectID")
+	val := ctx.Value(shared.ProjectIDContextKey)
 	if val == nil {
 		return uuid.Nil, ErrMissingProjectID
 	}

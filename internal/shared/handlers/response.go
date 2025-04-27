@@ -14,10 +14,10 @@ func SuccessResponse[T any](data *T) *Response[T] {
 	}
 }
 
-func FailedResponse[T any](errorMessage string) *Response[T] {
+func FailedResponse[T any](err error) *Response[T] {
 	return &Response[T]{
 		ResponseStatus: 200,
-		ErrorMessage:   errorMessage,
+		ErrorMessage:   err.Error(),
 	}
 }
 
