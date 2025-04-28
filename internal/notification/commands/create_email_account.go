@@ -12,6 +12,7 @@ import (
 )
 
 type CreateEmailAccountCommand struct {
+	ProjectID    uuid.UUID
 	Email        string
 	DisplayName  string
 	Host         string
@@ -43,13 +44,21 @@ func (c *CreateEmailAccountCommandHandler) Handle(ctx context.Context, command *
 	emailAccount := internalDomain.NewEmailAccount(uuid.New(), projectID, command.TypeID, email, command.DisplayName, command.Host, command.Port, command.EnableSSL)
 
 	if command.TypeID == internalDomain.Login {
-		encrypted, err := internalValueObject.EncryptPassword(command.Password, []byte(command.Email))
+		encrypted, err := internalValueObject.EncryptAES(command.Password)
 		if err != nil {
 			return nil, err
 		}
-		emailAccount.TraditionalCredentials = internalValueObject.NewTraditionalCredentials(command.Username, *encrypted)
+		credentials, err := internalValueObject.NewTraditionalCredentials(command.Username, encrypted)
+		if err != nil {
+			return nil, err
+		}
+		emailAccount.SetTraditionalCredentials(credentials)
 	} else {
-		emailAccount.OAuth2Credentials = internalValueObject.NewOAuth2Credentials(command.ClientID, command.ClientSecret, command.TenantID)
+		credentials, err := internalValueObject.NewOAuth2Credentials(command.ClientID, command.ClientSecret, command.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		emailAccount.SetOAuth2Credentials(credentials)
 	}
 
 	err := c.repository.Create(ctx, emailAccount)

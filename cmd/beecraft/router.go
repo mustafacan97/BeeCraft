@@ -26,9 +26,13 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 
 	// Mediator
 	getEmailAccountByEmailQueryHandler := queries.NewGetEmailAccountByEmailQueryHandler(emailAccountRepository)
+	getEmailAccountByIDQueryHandler := queries.NewGetEmailAccountByIDQueryHandler(emailAccountRepository)
 	createEmailAccountCommandHandler := commands.NewCreateEmailAccountCommandHandler(emailAccountRepository)
+	updateEmailAccountCommandHandler := commands.NewUpdateEmailAccountCommandHandler(emailAccountRepository)
 	mediator.RegisterRequestHandler(getEmailAccountByEmailQueryHandler)
+	mediator.RegisterRequestHandler(getEmailAccountByIDQueryHandler)
 	mediator.RegisterRequestHandler(createEmailAccountCommandHandler)
+	mediator.RegisterRequestHandler(updateEmailAccountCommandHandler)
 
 	// Handlers
 	registerHandler := iamHandlers.NewRegisterHandler(bus, &userRepository, &roleRepository)
@@ -52,10 +56,12 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 	{
 		// Handlers
 		createHandler := &notificationHandlers.CreateEmailAccountHandler{}
+		updateHandler := &notificationHandlers.UpdateEmailAccountHandler{}
 		oauthUrlHandler := notificationHandlers.NewOAuthUrlHandler()
 		oauthCallbackHandler := notificationHandlers.NewOAuthCallbackHandler(&emailAccountRepository)
 
 		notificationGroup.Post("/email-account", baseHandler.Serve(createHandler))
+		notificationGroup.Put("/email-account/:id", baseHandler.Serve(updateHandler))
 		notificationGroup.Post("/oauth", baseHandler.Serve(oauthUrlHandler))
 		notificationGroup.Get("/oauth-callback", baseHandler.Serve(oauthCallbackHandler))
 	}

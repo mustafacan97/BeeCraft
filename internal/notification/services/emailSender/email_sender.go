@@ -201,11 +201,11 @@ func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
 	switch ea.GetSmtpType() {
 	case domain.Login:
 		username, password := ea.TraditionalCredentials.GetCredentials()
-		rawPassword, err := internalValueObject.DecryptPassword(password, []byte(ea.Email.GetValue()))
+		rawPassword, err := internalValueObject.DecryptAES(password)
 		if err != nil {
 			return nil, err
 		}
-		auth := smtp.PlainAuth("", username, *rawPassword, ea.GetHost())
+		auth := smtp.PlainAuth("", username, rawPassword, ea.GetHost())
 		if err := client.Auth(auth); err != nil {
 			return nil, err
 		}
@@ -215,7 +215,7 @@ func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := client.Auth(NewOAuth2Auth(ea.Email.GetValue(), token.AccessToken)); err != nil {
+		if err := client.Auth(NewOAuth2Auth(ea.GetEmail().GetValue(), token.AccessToken)); err != nil {
 			return nil, err
 		}
 	default:

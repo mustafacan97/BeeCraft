@@ -48,7 +48,7 @@ func ToDTO(emailAccount *domain.EmailAccount) *EmailAccountDTO {
 	dto := &EmailAccountDTO{
 		ID:          emailAccount.GetID(),
 		ProjectID:   emailAccount.GetProjectID(),
-		Email:       emailAccount.Email.GetValue(),
+		Email:       emailAccount.GetEmail().GetValue(),
 		DisplayName: emailAccount.GetDisplayName(),
 		Host:        emailAccount.GetHost(),
 		Port:        emailAccount.GetPort(),
@@ -110,7 +110,13 @@ func (dto *EmailAccountDTO) applyTraditionalCredentials(ea *domain.EmailAccount)
 
 	username := ptrToString(dto.Username)
 	password := ptrToString(dto.Password)
-	ea.TraditionalCredentials.SetTraditionalCredentials(username, password)
+
+	if username != "" || password != "" {
+		return
+	}
+
+	credentials, _ := internalValueObjects.NewTraditionalCredentials(username, password)
+	ea.SetTraditionalCredentials(credentials)
 }
 
 func (dto *EmailAccountDTO) applyOAuth2Credentials(ea *domain.EmailAccount) {
@@ -121,7 +127,13 @@ func (dto *EmailAccountDTO) applyOAuth2Credentials(ea *domain.EmailAccount) {
 	clientID := ptrToString(dto.ClientID)
 	tenantID := ptrToString(dto.TenantID)
 	clientSecret := ptrToString(dto.ClientSecret)
-	ea.OAuth2Credentials = internalValueObjects.NewOAuth2Credentials(clientID, tenantID, clientSecret)
+
+	if clientID == "" || clientSecret == "" {
+		return
+	}
+
+	credentials, _ := internalValueObjects.NewOAuth2Credentials(clientID, tenantID, clientSecret)
+	ea.SetOAuth2Credentials(credentials)
 }
 
 func (dto *EmailAccountDTO) applyTokenInformation(ea *domain.EmailAccount) {

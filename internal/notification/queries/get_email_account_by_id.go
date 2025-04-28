@@ -10,11 +10,11 @@ import (
 	"github.com/google/uuid"
 )
 
-type GetEmailAccountByEmailQuery struct {
-	Email string
+type GetEmailAccountByIDQuery struct {
+	ID uuid.UUID
 }
 
-type GetEmailAccountByEmailQueryResponse struct {
+type GetEmailAccountByIDQueryResponse struct {
 	ID                     uuid.UUID                                  `json:"id"`
 	ProjectID              uuid.UUID                                  `json:"project_id"`
 	TypeId                 int                                        `json:"type_id"`
@@ -29,21 +29,16 @@ type GetEmailAccountByEmailQueryResponse struct {
 	TokenInformation       *internalValueObject.TokenInformation      `json:"token_information"`
 }
 
-type GetEmailAccountByEmailQueryHandler struct {
+type GetEmailAccountByIDQueryHandler struct {
 	repository repositories.EmailAccountRepository
 }
 
-func NewGetEmailAccountByEmailQueryHandler(repository repositories.EmailAccountRepository) *GetEmailAccountByEmailQueryHandler {
-	return &GetEmailAccountByEmailQueryHandler{repository: repository}
+func NewGetEmailAccountByIDQueryHandler(repository repositories.EmailAccountRepository) *GetEmailAccountByIDQueryHandler {
+	return &GetEmailAccountByIDQueryHandler{repository: repository}
 }
 
-func (c *GetEmailAccountByEmailQueryHandler) Handle(ctx context.Context, query *GetEmailAccountByEmailQuery) (*GetEmailAccountByEmailQueryResponse, error) {
-	email, err := valueobject.NewEmail(query.Email)
-	if err != nil {
-		return nil, err
-	}
-
-	emailAccount, err := c.repository.GetByEmail(ctx, email)
+func (c *GetEmailAccountByIDQueryHandler) Handle(ctx context.Context, query *GetEmailAccountByIDQuery) (*GetEmailAccountByIDQueryResponse, error) {
+	emailAccount, err := c.repository.GetByID(ctx, query.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -52,16 +47,16 @@ func (c *GetEmailAccountByEmailQueryHandler) Handle(ctx context.Context, query *
 		return nil, nil
 	}
 
-	base := &GetEmailAccountByEmailQueryResponse{
+	base := &GetEmailAccountByIDQueryResponse{
 		ID:                     emailAccount.ID,
 		ProjectID:              emailAccount.GetProjectID(),
 		Email:                  emailAccount.GetEmail(),
 		DisplayName:            emailAccount.GetDisplayName(),
 		Host:                   emailAccount.GetHost(),
 		Port:                   emailAccount.GetPort(),
-		TraditionalCredentials: emailAccount.TraditionalCredentials,
 		EnableSSL:              emailAccount.IsSslEnabled(),
 		TypeId:                 emailAccount.GetSmtpType(),
+		TraditionalCredentials: emailAccount.TraditionalCredentials,
 		OAuth2Credentials:      emailAccount.OAuth2Credentials,
 		TokenInformation:       emailAccount.TokenInformation,
 		CreatedAt:              emailAccount.GetCreatedDate(),

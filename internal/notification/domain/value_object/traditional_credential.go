@@ -10,38 +10,22 @@ import (
 	"platform/pkg/domain"
 )
 
+var aesKey = []byte("1234567890123456")
+
 type TraditionalCredential struct {
 	domain.BaseValueObject
 	username string
 	password string
 }
 
-func NewTraditionalCredentials(username, password string) *TraditionalCredential {
+func NewTraditionalCredentials(username, rawPassword string) (*TraditionalCredential, error) {
+	if username == "" || rawPassword == "" {
+		return nil, errors.New("username and password are request for traditional authentication")
+	}
 	return &TraditionalCredential{
 		username: username,
-		password: password,
-	}
-}
-
-func EncryptPassword(rawPassword string, secretKey []byte) (*string, error) {
-	encrypted, err := encryptAES(rawPassword, secretKey)
-	if err != nil {
-		return nil, err
-	}
-	return &encrypted, nil
-}
-
-func DecryptPassword(password string, secretKey []byte) (*string, error) {
-	decrypted, err := decryptAES(password, secretKey)
-	if err != nil {
-		return nil, err
-	}
-	return &decrypted, nil
-}
-
-func (e *TraditionalCredential) SetTraditionalCredentials(username, password string) {
-	e.username = username
-	e.password = password
+		password: rawPassword,
+	}, nil
 }
 
 func (e *TraditionalCredential) GetCredentials() (string, string) {
@@ -52,8 +36,8 @@ func (e *TraditionalCredential) GetAtomicValues() []interface{} {
 	return []any{e.username, e.password}
 }
 
-func encryptAES(plainText string, key []byte) (string, error) {
-	block, err := aes.NewCipher(key)
+func EncryptAES(plainText string) (string, error) {
+	block, err := aes.NewCipher(aesKey)
 	if err != nil {
 		return "", err
 	}
@@ -71,13 +55,13 @@ func encryptAES(plainText string, key []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(cipherText), nil
 }
 
-func decryptAES(encryptedText string, key []byte) (string, error) {
+func DecryptAES(encryptedText string) (string, error) {
 	data, err := base64.StdEncoding.DecodeString(encryptedText)
 	if err != nil {
 		return "", err
 	}
 
-	block, err := aes.NewCipher(key)
+	block, err := aes.NewCipher(aesKey)
 	if err != nil {
 		return "", err
 	}

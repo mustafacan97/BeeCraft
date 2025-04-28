@@ -14,11 +14,12 @@ import (
 )
 
 var (
-	errEmailAccountAlreadyRegistered = errors.New("email account already registered")
+	errEmailAccountNotFound = errors.New("email account not found")
 )
 
-type CreateEmailAccountRequest struct {
+type UpdateEmailAccountRequest struct {
 	ProjectID    uuid.UUID `reqHeader:"X-Project-ID" json:"-" validate:"required,uuid4"`
+	ID           uuid.UUID `params:"id" json:"-" validate:"required,uuid4"`
 	Email        string    `json:"email" validate:"required,email"`
 	DisplayName  string    `json:"display_name" validate:"required,max=255"`
 	Host         string    `json:"host" validate:"required,hostname|ip,max=255"`
@@ -32,24 +33,25 @@ type CreateEmailAccountRequest struct {
 	ClientSecret string    `json:"client_secret"`
 }
 
-type CreateEmailAccountHandler struct{}
+type UpdateEmailAccountHandler struct{}
 
-func (h *CreateEmailAccountHandler) Handle(ctx context.Context, req *CreateEmailAccountRequest) (*baseHandler.Response[shared.HALResource], error) {
+func (h *UpdateEmailAccountHandler) Handle(ctx context.Context, req *UpdateEmailAccountRequest) (*baseHandler.Response[shared.HALResource], error) {
 	// STEP-1: Set the ProjectID to the context so that repositories can use it
 	ctx = context.WithValue(ctx, shared.ProjectIDContextKey, req.ProjectID)
 
 	// STEP-2: Check if email already exists
-	query := queries.GetEmailAccountByEmailQuery{Email: req.Email}
-	resp, err := mediator.Send[*queries.GetEmailAccountByEmailQuery, *queries.GetEmailAccountByEmailQueryResponse](ctx, &query)
+	query := queries.GetEmailAccountByIDQuery{ID: req.ID}
+	resp, err := mediator.Send[*queries.GetEmailAccountByIDQuery, *queries.GetEmailAccountByIDQueryResponse](ctx, &query)
 	if err != nil {
 		return baseHandler.FailedResponse[shared.HALResource](err), nil
 	}
-	if resp != nil {
-		return baseHandler.FailedResponse[shared.HALResource](errEmailAccountAlreadyRegistered), nil
+	if resp == nil {
+		return baseHandler.FailedResponse[shared.HALResource](errEmailAccountNotFound), nil
 	}
 
 	// Step-3: Create email account command
-	command := commands.CreateEmailAccountCommand{
+	command := commands.UpdateEmailAccountCommand{
+		ID:           req.ID,
 		Email:        req.Email,
 		DisplayName:  req.DisplayName,
 		Host:         req.Host,
@@ -62,7 +64,7 @@ func (h *CreateEmailAccountHandler) Handle(ctx context.Context, req *CreateEmail
 		TenantID:     req.TenantID,
 		ClientSecret: req.ClientSecret,
 	}
-	_, commandErr := mediator.Send[*commands.CreateEmailAccountCommand, *commands.CreateEmailAccountCommandResponse](ctx, &command)
+	_, commandErr := mediator.Send[*commands.UpdateEmailAccountCommand, *commands.UpdateEmailAccountCommandResponse](ctx, &command)
 	if commandErr != nil {
 		return baseHandler.FailedResponse[shared.HALResource](commandErr), nil
 	}

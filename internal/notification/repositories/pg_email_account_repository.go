@@ -74,12 +74,8 @@ func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email valueob
 }
 
 func (p *pgEmailAccountRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.EmailAccount, error) {
-	projectID, err := getProjectID(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	sql := "SELECT * FROM email_accounts WHERE project_id = $1 AND id = $2"
+	projectID, _ := ctx.Value(shared.ProjectIDContextKey).(uuid.UUID)
+	sql := "SELECT * FROM notification.email_accounts WHERE project_id = $1 AND id = $2"
 	rows, err := p.pool.Query(ctx, sql, projectID, id)
 	if err != nil {
 		return nil, err
@@ -137,47 +133,26 @@ func (p *pgEmailAccountRepository) Delete(ctx context.Context, id uuid.UUID) err
 }
 
 func (p *pgEmailAccountRepository) Update(ctx context.Context, account *domain.EmailAccount) error {
-	dto := ToDTO(account)
-
 	query := `
-		UPDATE email_accounts SET
-			email = $1,
-			display_name = $2,
-			host = $3,
-			port = $4,
-			type_id = $5,
-			enable_ssl = $6,
-			username = $7,
-			password = $8,
-			client_id = $9,
-			client_secret = $10,
-			tenant_id = $11,
-			access_token = $12,
-			refresh_token = $13,
-			expire_at = $14
-		WHERE id = $15 AND project_id = $16
+		UPDATE notification.email_accounts SET
+			email = $3,
+			display_name = $4,
+			host = $5,
+			port = $6,
+			enable_ssl = $7,
+			type_id = $8,			
+			username = $9,
+			password = $10,
+			client_id = $11,
+			tenant_id = $12,
+			client_secret = $13,
+			access_token = $14,
+			refresh_token = $15,
+			expire_at = $16
+		WHERE id = $1 AND project_id = $2
 	`
 
-	values := []any{
-		dto.Email,
-		dto.DisplayName,
-		dto.Host,
-		dto.Port,
-		dto.TypeID,
-		dto.EnableSsl,
-		dto.Username,
-		dto.Password,
-		dto.ClientID,
-		dto.ClientSecret,
-		dto.TenantID,
-		dto.AccessToken,
-		dto.RefreshToken,
-		dto.ExpireAt,
-		dto.ID,
-		dto.ProjectID,
-	}
-
-	_, err := p.pool.Exec(ctx, query, values...)
+	_, err := p.pool.Exec(ctx, query, ToDTO(account).ToValues()[0:16]...)
 	return err
 }
 

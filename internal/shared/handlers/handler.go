@@ -3,12 +3,10 @@ package handlers
 import (
 	"context"
 	"errors"
-	"platform/internal/shared"
 	"platform/internal/shared/validators"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -28,32 +26,24 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var req I
 
-		ctx := c.UserContext()
-
-		// If projectID exists in header, save it to context
-		if projectID := c.Get(shared.ProjectIDHeader); projectID != "" {
-			parsedProjectID, err := uuid.Parse(projectID)
-			if err == nil {
-				ctx = context.WithValue(ctx, shared.ProjectIDContextKey, parsedProjectID)
-			} else {
-				// TODO: log here!
-			}
-		}
-
-		if err := c.BodyParser(&req); err != nil && !errors.Is(err, fiber.ErrUnprocessableEntity) {
+		if err := c.ReqHeaderParser(&req); err != nil {
 			// TODO: log here
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid JSON body")
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid header parameters")
 		}
 
 		if err := c.ParamsParser(&req); err != nil {
 			// TODO: log here
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid URL parameters")
-
 		}
 
 		if err := c.QueryParser(&req); err != nil {
 			// TODO: log here
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid query parameters")
+		}
+
+		if err := c.BodyParser(&req); err != nil && !errors.Is(err, fiber.ErrUnprocessableEntity) {
+			// TODO: log here
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid JSON body")
 		}
 
 		// For validation, I started with Fiber middleware.
@@ -85,7 +75,7 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 			}
 		}
 
-		resp, err := h.Handle(ctx, &req)
+		resp, err := h.Handle(c.UserContext(), &req)
 		if err != nil {
 			zap.L().Error("An error occurred during request handling", zap.Error(err))
 			return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": "An unexpected error occurred. Please try again later."})

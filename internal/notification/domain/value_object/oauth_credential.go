@@ -1,6 +1,9 @@
 package valueobject
 
-import "platform/pkg/domain"
+import (
+	"errors"
+	"platform/pkg/domain"
+)
 
 type OAuth2Credential struct {
 	domain.BaseValueObject
@@ -9,12 +12,15 @@ type OAuth2Credential struct {
 	clientSecret string
 }
 
-func NewOAuth2Credentials(clientID, tenantID, clientSecret string) *OAuth2Credential {
+func NewOAuth2Credentials(clientID, tenantID, clientSecret string) (*OAuth2Credential, error) {
+	if clientID == "" || clientSecret == "" {
+		return nil, errors.New("clientID and clientSecret required for OAuth2 credentials")
+	}
 	return &OAuth2Credential{
 		clientID:     clientID,
 		tenantID:     tenantID,
 		clientSecret: clientSecret,
-	}
+	}, nil
 }
 
 func (e *OAuth2Credential) GetCredentials() (clientID, tenantID, clientSecret string) {
