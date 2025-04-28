@@ -121,14 +121,9 @@ func (p *pgEmailAccountRepository) Create(ctx context.Context, account *domain.E
 }
 
 func (p *pgEmailAccountRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	projectID, err := getProjectID(ctx)
-	if err != nil {
-		return err
-	}
-
-	query := "DELETE FROM email_accounts WHERE id = $1 AND project_id = $2"
-
-	_, err = p.pool.Exec(ctx, query, id, projectID)
+	projectID, _ := ctx.Value(shared.ProjectIDContextKey).(uuid.UUID)
+	sql := "DELETE FROM notification.email_accounts WHERE project_id = $1 AND id = $2"
+	_, err := p.pool.Exec(ctx, sql, projectID, id)
 	return err
 }
 
