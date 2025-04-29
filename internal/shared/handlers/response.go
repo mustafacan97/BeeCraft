@@ -1,16 +1,25 @@
 package handlers
 
+import "platform/internal/shared"
+
 type Response[T any] struct {
 	ResponseStatus int    `json:"-"`
 	ErrorMessage   string `json:"errorMessage,omitempty"`
 	Message        string `json:"message,omitempty"`
 	Data           *T     `json:"data,omitempty"`
+	shared.HALResource
 }
 
 func SuccessResponse[T any](data *T) *Response[T] {
 	return &Response[T]{
 		ResponseStatus: 200,
 		Data:           data,
+	}
+}
+
+func NotFoundResponse[T any]() *Response[T] {
+	return &Response[T]{
+		ResponseStatus: 404,
 	}
 }
 

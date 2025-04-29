@@ -26,10 +26,7 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var req I
 
-		if err := c.ReqHeaderParser(&req); err != nil {
-			// TODO: log here
-			return fiber.NewError(fiber.StatusBadRequest, "Invalid header parameters")
-		}
+		ctx := c.UserContext()
 
 		if err := c.ParamsParser(&req); err != nil {
 			// TODO: log here
@@ -75,7 +72,7 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 			}
 		}
 
-		resp, err := h.Handle(c.UserContext(), &req)
+		resp, err := h.Handle(ctx, &req)
 		if err != nil {
 			zap.L().Error("An error occurred during request handling", zap.Error(err))
 			return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": "An unexpected error occurred. Please try again later."})

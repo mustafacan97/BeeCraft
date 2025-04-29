@@ -2,6 +2,7 @@ package main
 
 import (
 	baseHandler "platform/internal/shared/handlers"
+	"platform/internal/shared/middlewares"
 	event_bus "platform/pkg/services/eventbus"
 	mediator "platform/pkg/services/mediator"
 
@@ -54,18 +55,19 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 	}
 
 	// Notification Service Routes
-	notificationGroup := version1.Group("/notification")
+	notificationGroup := version1.Group("/notification", middlewares.RequireProjectID())
 	{
-		// Handlers
 		createHandler := &notificationHandlers.CreateEmailAccountHandler{}
 		updateHandler := &notificationHandlers.UpdateEmailAccountHandler{}
 		deleteHandler := &notificationHandlers.DeleteEmailAccountHandler{}
+		getHandler := &notificationHandlers.GetEmailAccountHandler{}
 		oauthUrlHandler := notificationHandlers.NewOAuthUrlHandler()
 		oauthCallbackHandler := notificationHandlers.NewOAuthCallbackHandler(&emailAccountRepository)
 
 		notificationGroup.Post("/email-account", baseHandler.Serve(createHandler))
 		notificationGroup.Put("/email-account/:id", baseHandler.Serve(updateHandler))
 		notificationGroup.Delete("/email-account/:id", baseHandler.Serve(deleteHandler))
+		notificationGroup.Get("/email-account/:id", baseHandler.Serve(getHandler))
 		notificationGroup.Post("/oauth", baseHandler.Serve(oauthUrlHandler))
 		notificationGroup.Get("/oauth-callback", baseHandler.Serve(oauthCallbackHandler))
 	}

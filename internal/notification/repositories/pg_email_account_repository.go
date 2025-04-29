@@ -28,11 +28,7 @@ func NewPgEmailAccountRepository(pool *pgxpool.Pool) EmailAccountRepository {
 
 // QUERY
 func (p *pgEmailAccountRepository) GetAll(ctx context.Context) ([]*domain.EmailAccount, error) {
-	projectID, err := getProjectID(ctx)
-	if err != nil {
-		return []*domain.EmailAccount{}, err
-	}
-
+	projectID, _ := ctx.Value(shared.ProjectIDContextKey).(uuid.UUID)
 	sql := "SELECT * FROM email_accounts WHERE project_id = $1"
 	rows, err := p.pool.Query(ctx, sql, projectID)
 	if err != nil {
@@ -149,22 +145,4 @@ func (p *pgEmailAccountRepository) Update(ctx context.Context, account *domain.E
 
 	_, err := p.pool.Exec(ctx, query, ToDTO(account).ToValues()[0:16]...)
 	return err
-}
-
-func getProjectID(ctx context.Context) (uuid.UUID, error) {
-	val := ctx.Value(shared.ProjectIDContextKey)
-	if val == nil {
-		return uuid.Nil, ErrMissingProjectID
-	}
-
-	projectID, ok := val.(uuid.UUID)
-	if !ok {
-		return uuid.Nil, ErrInvalidProjectID
-	}
-
-	if projectID == uuid.Nil {
-		return uuid.Nil, ErrEmptyProjectID
-	}
-
-	return projectID, nil
 }
