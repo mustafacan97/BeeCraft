@@ -2,12 +2,16 @@ package handlers
 
 import (
 	"context"
+	"encoding/base64"
+	"fmt"
 	"platform/internal/notification/domain"
 	"platform/internal/notification/queries"
 	baseHandler "platform/internal/shared/handlers"
 	"platform/pkg/services/mediator"
 
 	"github.com/google/uuid"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 type GetEmailAccountRequest struct {
@@ -25,6 +29,7 @@ type GetEmailAccountResponse struct {
 	Password     string `json:"password"`
 	ClientID     string `json:"client_id"`
 	TenantID     string `json:"tenant_id"`
+	OAuth2Url    string `json:"oauth2_url"`
 	ClientSecret string `json:"client_secret"`
 }
 
@@ -61,5 +66,31 @@ func (h *GetEmailAccountHandler) Handle(ctx context.Context, req *GetEmailAccoun
 		response.ClientSecret = clientSecret
 	}
 
+	if resp.OAuth2Credentials != nil {
+		response.OAuth2Url = getOAuth2Url(req.ID, response.ClientID, response.TenantID, response.ClientSecret)
+	}
+
 	return baseHandler.SuccessResponse(&response), nil
+}
+
+func getOAuth2Url(emailAccountID uuid.UUID, clientID, tenantID, clientSecret string) string {
+	oauth2Config := &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  "http://localhost:3000/oauth2-callback",
+	}
+
+	if tenantID != "" {
+		oauth2Config.Scopes = []string{"https://outlook.office365.com/SMTP.Send", "offline_access"}
+		oauth2Config.Endpoint = oauth2.Endpoint{
+			AuthURL:  fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantID),
+			TokenURL: fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantID),
+		}
+	} else {
+		oauth2Config.Scopes = []string{"https://mail.google.com/"}
+		oauth2Config.Endpoint = google.Endpoint
+	}
+
+	encodedState := base64.StdEncoding.EncodeToString([]byte(emailAccountID.String()))
+	return oauth2Config.AuthCodeURL(encodedState, oauth2.AccessTypeOffline)
 }

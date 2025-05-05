@@ -7,6 +7,7 @@ import (
 	internalValueObject "platform/internal/notification/domain/value_object"
 	"platform/internal/notification/repositories"
 	"platform/pkg/domain/valueobject"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -24,6 +25,9 @@ type UpdateEmailAccountCommand struct {
 	ClientID     string
 	TenantID     string
 	ClientSecret string
+	AccessToken  string
+	RefreshToken string
+	ExpireAt     time.Time
 }
 
 type UpdateEmailAccountCommandResponse struct{}
@@ -37,12 +41,15 @@ func NewUpdateEmailAccountCommandHandler(repository repositories.EmailAccountRep
 }
 
 func (c *UpdateEmailAccountCommandHandler) Handle(ctx context.Context, command *UpdateEmailAccountCommand) (*UpdateEmailAccountCommandResponse, error) {
+	ea, _ := c.repository.GetByID(ctx, command.ID)
+	if ea == nil {
+		return nil, nil
+	}
+
 	email, err := valueobject.NewEmail(command.Email)
 	if err != nil {
 		return nil, err
 	}
-
-	ea, _ := c.repository.GetByID(ctx, command.ID)
 
 	if !ea.GetEmail().Equals(email) {
 		ea.SetEmail(email)
@@ -83,15 +90,20 @@ func (c *UpdateEmailAccountCommandHandler) Handle(ctx context.Context, command *
 		}
 	case internalDomain.GmailOAuth2:
 	case internalDomain.MicrosoftOAuth2:
-		credentials, err := internalValueObject.NewOAuth2Credentials(command.ClientID, command.ClientSecret, command.TenantID)
+		credentials, err := internalValueObject.NewOAuth2Credentials(command.ClientID, command.TenantID, command.ClientSecret)
 		if err != nil {
 			return nil, err
 		}
 		if ea.OAuth2Credentials == nil || !ea.OAuth2Credentials.Equals(credentials) {
 			ea.SetOAuth2Credentials(credentials)
 		}
+		accessToken, refreshToken, expireAt := ea.TokenInformation.GetTokenInformation()
+		if accessToken != command.AccessToken || refreshToken != command.RefreshToken || expireAt != command.ExpireAt {
+			newTokenInformation := internalValueObject.NewTokenInformation(command.AccessToken, command.RefreshToken, command.ExpireAt)
+			ea.SetTokenInformation(newTokenInformation)
+		}
 	default:
-		return nil, errors.New("invalid login type")
+		return nil, errors.New("invalid smtp type")
 	}
 
 	err = c.repository.Update(ctx, ea)
