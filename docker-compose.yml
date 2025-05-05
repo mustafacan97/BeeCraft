@@ -96,6 +96,15 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
+  memcached:
+    image: memcached:alpine
+    container_name: memcached
+    ports:
+      - "11211:11211"
+    networks:
+      - platform
+    restart: always
+
 networks:
   platform:
     driver: bridge
