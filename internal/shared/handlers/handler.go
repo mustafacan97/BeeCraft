@@ -63,6 +63,14 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 					errorMessages = append(errorMessages, "Please enter a valid email address")
 				case "password":
 					errorMessages = append(errorMessages, "Password must have at least a uppercase-lowercase and a numeric characters")
+				case "gt":
+					errorMessages = append(errorMessages, fieldError.Field()+" must be greater than "+fieldError.Param())
+				case "gte":
+					errorMessages = append(errorMessages, fieldError.Field()+" must be greater than or equal to "+fieldError.Param())
+				case "lt":
+					errorMessages = append(errorMessages, fieldError.Field()+" must be less than "+fieldError.Param())
+				case "lte":
+					errorMessages = append(errorMessages, fieldError.Field()+" must be less than or equal to "+fieldError.Param())
 				}
 			}
 

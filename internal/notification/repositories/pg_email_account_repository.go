@@ -27,18 +27,26 @@ func NewPgEmailAccountRepository(pool *pgxpool.Pool) EmailAccountRepository {
 }
 
 // QUERY
-func (p *pgEmailAccountRepository) GetAll(ctx context.Context) ([]*domain.EmailAccount, error) {
+func (p *pgEmailAccountRepository) GetAll(ctx context.Context, page, pageSize int) ([]*domain.EmailAccount, int, error) {
 	projectID, _ := ctx.Value(shared.ProjectIDContextKey).(uuid.UUID)
-	sql := "SELECT * FROM email_accounts WHERE project_id = $1"
-	rows, err := p.pool.Query(ctx, sql, projectID)
+	offset := (page - 1) * pageSize
+
+	var totalCount int
+	countSQL := "SELECT COUNT(*) FROM notification.email_accounts WHERE project_id = $1"
+	if err := p.pool.QueryRow(ctx, countSQL, projectID).Scan(&totalCount); err != nil {
+		return nil, 0, err
+	}
+
+	dataSQL := `SELECT * FROM notification.email_accounts WHERE project_id = $1 ORDER BY created_at LIMIT $2 OFFSET $3`
+	rows, err := p.pool.Query(ctx, dataSQL, projectID, pageSize, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	dtos, err := pgx.CollectRows(rows, pgx.RowToStructByName[EmailAccountDTO])
 	if err != nil {
-		return []*domain.EmailAccount{}, err
+		return nil, 0, err
 	}
 
 	accounts := make([]*domain.EmailAccount, 0, len(dtos))
@@ -46,7 +54,7 @@ func (p *pgEmailAccountRepository) GetAll(ctx context.Context) ([]*domain.EmailA
 		accounts = append(accounts, dto.ToDomain())
 	}
 
-	return accounts, nil
+	return accounts, totalCount, nil
 }
 
 func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email valueobject.Email) (*domain.EmailAccount, error) {

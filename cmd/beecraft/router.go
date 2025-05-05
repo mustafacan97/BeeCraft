@@ -28,11 +28,13 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 	// Mediator
 	getEmailAccountByEmailQueryHandler := queries.NewGetEmailAccountByEmailQueryHandler(emailAccountRepository)
 	getEmailAccountByIDQueryHandler := queries.NewGetEmailAccountByIDQueryHandler(emailAccountRepository)
+	listEmailAccountQueryHandler := queries.NewListEmailAccountQueryHandler(emailAccountRepository)
 	createEmailAccountCommandHandler := commands.NewCreateEmailAccountCommandHandler(emailAccountRepository)
 	updateEmailAccountCommandHandler := commands.NewUpdateEmailAccountCommandHandler(emailAccountRepository)
 	deleteEmailAccountCommandHandler := commands.NewDeleteEmailAccountCommandHandler(emailAccountRepository)
 	mediator.RegisterRequestHandler(getEmailAccountByEmailQueryHandler)
 	mediator.RegisterRequestHandler(getEmailAccountByIDQueryHandler)
+	mediator.RegisterRequestHandler(listEmailAccountQueryHandler)
 	mediator.RegisterRequestHandler(createEmailAccountCommandHandler)
 	mediator.RegisterRequestHandler(updateEmailAccountCommandHandler)
 	mediator.RegisterRequestHandler(&deleteEmailAccountCommandHandler)
@@ -61,13 +63,16 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 		updateHandler := &notificationHandlers.UpdateEmailAccountHandler{}
 		deleteHandler := &notificationHandlers.DeleteEmailAccountHandler{}
 		getHandler := &notificationHandlers.GetEmailAccountHandler{}
-		oauthUrlHandler := notificationHandlers.NewOAuthUrlHandler()
-		oauthCallbackHandler := notificationHandlers.NewOAuthCallbackHandler(&emailAccountRepository)
+		listHandler := &notificationHandlers.ListEmailAccountHandler{}
 
 		notificationGroup.Post("/email-account", baseHandler.Serve(createHandler))
 		notificationGroup.Put("/email-account/:id", baseHandler.Serve(updateHandler))
 		notificationGroup.Delete("/email-account/:id", baseHandler.Serve(deleteHandler))
 		notificationGroup.Get("/email-account/:id", baseHandler.Serve(getHandler))
+		notificationGroup.Get("/email-accounts", baseHandler.Serve(listHandler))
+
+		oauthUrlHandler := notificationHandlers.NewOAuthUrlHandler()
+		oauthCallbackHandler := notificationHandlers.NewOAuthCallbackHandler(&emailAccountRepository)
 		notificationGroup.Post("/oauth", baseHandler.Serve(oauthUrlHandler))
 		notificationGroup.Get("/oauth-callback", baseHandler.Serve(oauthCallbackHandler))
 	}
