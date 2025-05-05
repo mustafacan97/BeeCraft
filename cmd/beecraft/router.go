@@ -65,6 +65,7 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 		getHandler := &notificationHandlers.GetEmailAccountHandler{}
 		listHandler := &notificationHandlers.ListEmailAccountHandler{}
 		oauth2CallbackHandler := &notificationHandlers.OAuth2CallbackHandler{}
+		testEmailHandler := &notificationHandlers.SendTestEmailHandler{}
 
 		notificationGroup.Post("/email-account", baseHandler.Serve(createHandler))
 		notificationGroup.Put("/email-account/:id", baseHandler.Serve(updateHandler))
@@ -72,5 +73,6 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 		notificationGroup.Get("/email-account/:id", baseHandler.Serve(getHandler))
 		notificationGroup.Get("/email-accounts", baseHandler.Serve(listHandler))
 		notificationGroup.Get("/oauth2-callback", baseHandler.Serve(oauth2CallbackHandler))
+		notificationGroup.Get("/email-accounts/:id/:email", baseHandler.Serve(testEmailHandler))
 	}
 }
