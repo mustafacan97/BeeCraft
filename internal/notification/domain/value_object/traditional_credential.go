@@ -32,6 +32,11 @@ func (e *TraditionalCredential) GetCredentials() (string, string) {
 	return e.username, e.password
 }
 
+func (e *TraditionalCredential) SetCredentials(username, password string) {
+	e.username = username
+	e.password = password
+}
+
 func (e *TraditionalCredential) GetAtomicValues() []interface{} {
 	return []any{e.username, e.password}
 }

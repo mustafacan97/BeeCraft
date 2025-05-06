@@ -27,6 +27,12 @@ func (e *OAuth2Credential) GetCredentials() (clientID, tenantID, clientSecret st
 	return e.clientID, e.tenantID, e.clientSecret
 }
 
+func (e *OAuth2Credential) SetCredentials(clientID, tenantID, clientSecret string) {
+	e.clientID = clientID
+	e.tenantID = tenantID
+	e.clientSecret = clientSecret
+}
+
 func (e *OAuth2Credential) GetAtomicValues() []interface{} {
 	return []any{e.clientID, e.tenantID, e.clientSecret}
 }

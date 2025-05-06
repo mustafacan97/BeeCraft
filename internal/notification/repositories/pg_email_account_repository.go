@@ -144,7 +144,7 @@ func (p *pgEmailAccountRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 }
 
 // COMMAND
-func (p *pgEmailAccountRepository) Create(ctx context.Context, account *domain.EmailAccount) error {
+func (p *pgEmailAccountRepository) Create(ctx context.Context, ea *domain.EmailAccount) error {
 	query := `
 		INSERT INTO notification.email_accounts (
 			id,
@@ -166,7 +166,8 @@ func (p *pgEmailAccountRepository) Create(ctx context.Context, account *domain.E
 			created_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`
 
-	_, err := p.pool.Exec(ctx, query, ToDTO(account).ToValues()...)
+	dto := EmailAccountDTO{}
+	_, err := p.pool.Exec(ctx, query, dto.ToDTO(ea).GetValues()...)
 	return err
 }
 
@@ -196,7 +197,7 @@ func (p *pgEmailAccountRepository) Update(ctx context.Context, account *domain.E
 			expire_at = $16
 		WHERE id = $1 AND project_id = $2
 	`
-
-	_, err := p.pool.Exec(ctx, query, ToDTO(account).ToValues()[0:16]...)
+	dto := EmailAccountDTO{}
+	_, err := p.pool.Exec(ctx, query, dto.ToDTO(account).GetValues()[0:16]...)
 	return err
 }

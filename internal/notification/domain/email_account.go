@@ -65,6 +65,7 @@ func (ea *EmailAccount) GetTemplates() []EmailTemplate  { return ea.emailTemplat
 func (ea *EmailAccount) GetQueuedEmails() []QueuedEmail { return ea.queuedEmails }
 
 // SETTERS
+func (ea *EmailAccount) SetProjectID(id uuid.UUID)         { ea.projectID = id }
 func (ea *EmailAccount) SetEmail(email valueobject.Email)  { ea.email = email }
 func (ea *EmailAccount) SetDisplayName(displayName string) { ea.displayName = displayName }
 func (ea *EmailAccount) SetHost(host string)               { ea.host = host }
