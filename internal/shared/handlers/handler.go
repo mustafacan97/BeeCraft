@@ -16,6 +16,7 @@ var (
 
 func init() {
 	validation.RegisterValidation("password", validators.PasswordValidator)
+	validation.RegisterValidation("hostname", validators.HostnameValidator)
 }
 
 type Handler[I Request, O any] interface {
@@ -63,6 +64,8 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 					errorMessages = append(errorMessages, "Please enter a valid email address")
 				case "password":
 					errorMessages = append(errorMessages, "Password must have at least a uppercase-lowercase and a numeric characters")
+				case "hostname":
+					errorMessages = append(errorMessages, "Please enter a valid hostname")
 				case "gt":
 					errorMessages = append(errorMessages, fieldError.Field()+" must be greater than "+fieldError.Param())
 				case "gte":
@@ -71,6 +74,8 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 					errorMessages = append(errorMessages, fieldError.Field()+" must be less than "+fieldError.Param())
 				case "lte":
 					errorMessages = append(errorMessages, fieldError.Field()+" must be less than or equal to "+fieldError.Param())
+				case "oneof":
+					errorMessages = append(errorMessages, fieldError.Field()+" must be one of the following values: "+fieldError.Param())
 				}
 			}
 

@@ -18,7 +18,7 @@ import (
 type CreateEmailAccountRequest struct {
 	Email        string `json:"email" validate:"required,email"`
 	DisplayName  string `json:"display_name" validate:"required,max=255"`
-	Host         string `json:"host" validate:"required,hostname|ip,max=255"`
+	Host         string `json:"host" validate:"required,hostname,max=255"`
 	Port         int    `json:"port" validate:"required,min=1,max=65535"`
 	EnableSSL    bool   `json:"enable_ssl"`
 	TypeID       int    `json:"type_id" validate:"required,oneof=1 2 3"`

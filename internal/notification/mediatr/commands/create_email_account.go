@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"platform/internal/notification/domain"
-	internalDomain "platform/internal/notification/domain"
 	voInternal "platform/internal/notification/domain/value_object"
 	"platform/internal/notification/repositories"
 	"platform/internal/notification/services/encryption"
@@ -13,7 +12,6 @@ import (
 )
 
 type CreateEmailAccountCommand struct {
-	ProjectID    uuid.UUID
 	Email        string
 	DisplayName  string
 	Host         string
@@ -59,7 +57,7 @@ func (c *CreateEmailAccountCommandHandler) Handle(ctx context.Context, command *
 	ea.SetPort(command.Port)
 	ea.SetEnableSSL(command.EnableSSL)
 
-	if command.TypeID == internalDomain.Login {
+	if command.TypeID == domain.Login {
 		encrypted, err := c.encryption.Encrypt(command.Password)
 		if err != nil {
 			return nil, err
@@ -68,9 +66,6 @@ func (c *CreateEmailAccountCommandHandler) Handle(ctx context.Context, command *
 		ea.SetTraditionalCredentials(credentials)
 	} else {
 		credentials := voInternal.NewOAuth2Credentials(command.ClientID, command.TenantID, command.ClientSecret)
-		if err != nil {
-			return nil, err
-		}
 		ea.SetOAuth2Credentials(credentials)
 	}
 
