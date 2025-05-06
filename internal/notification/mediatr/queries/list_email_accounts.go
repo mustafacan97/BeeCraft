@@ -48,10 +48,10 @@ func (c *ListEmailAccountsQueryHandler) Handle(ctx context.Context, query *ListE
 	for _, acc := range emailAccounts {
 		response.Data = append(response.Data, emailAccountDataForListing{
 			ID:          acc.ID,
-			Email:       acc.GetEmail().GetValue(),
+			Email:       acc.GetEmail().Value(),
 			DisplayName: acc.GetDisplayName(),
 			TypeId:      acc.GetSmtpType(),
-			CreatedAt:   acc.GetCreatedDate(),
+			CreatedAt:   acc.GetCreatedAt(),
 		})
 	}
 

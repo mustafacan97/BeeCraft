@@ -2,9 +2,9 @@ package queries
 
 import (
 	"context"
-	internalValueObject "platform/internal/notification/domain/value_object"
+	voInternal "platform/internal/notification/domain/value_object"
 	"platform/internal/notification/repositories"
-	"platform/pkg/domain/valueobject"
+	voExternal "platform/pkg/domain/value_object"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,14 +17,14 @@ type GetEmailAccountByEmailQuery struct {
 type GetEmailAccountByEmailQueryResponse struct {
 	ID                     uuid.UUID
 	ProjectID              uuid.UUID
-	Email                  valueobject.Email
+	Email                  voExternal.Email
 	DisplayName            string
 	Host                   string
 	Port                   int
 	EnableSSL              bool
 	TypeId                 int
-	TraditionalCredentials *internalValueObject.TraditionalCredential
-	OAuth2Credentials      *internalValueObject.OAuth2Credential
+	TraditionalCredentials *voInternal.TraditionalCredentials
+	OAuth2Credentials      *voInternal.OAuth2Credentials
 	CreatedAt              time.Time
 }
 
@@ -37,7 +37,7 @@ func NewGetEmailAccountByEmailQueryHandler(repository repositories.EmailAccountR
 }
 
 func (c *GetEmailAccountByEmailQueryHandler) Handle(ctx context.Context, query *GetEmailAccountByEmailQuery) (*GetEmailAccountByEmailQueryResponse, error) {
-	email, err := valueobject.NewEmail(query.Email)
+	email, err := voExternal.NewEmail(query.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -57,11 +57,11 @@ func (c *GetEmailAccountByEmailQueryHandler) Handle(ctx context.Context, query *
 		DisplayName:            emailAccount.GetDisplayName(),
 		Host:                   emailAccount.GetHost(),
 		Port:                   emailAccount.GetPort(),
-		EnableSSL:              emailAccount.IsSslEnabled(),
+		EnableSSL:              emailAccount.GetEnableSSL(),
 		TypeId:                 emailAccount.GetSmtpType(),
-		TraditionalCredentials: emailAccount.TraditionalCredentials,
-		OAuth2Credentials:      emailAccount.OAuth2Credentials,
-		CreatedAt:              emailAccount.GetCreatedDate(),
+		TraditionalCredentials: emailAccount.GetTraditionalCredentials(),
+		OAuth2Credentials:      emailAccount.GetOAuth2Credentials(),
+		CreatedAt:              emailAccount.GetCreatedAt(),
 	}
 
 	return base, nil

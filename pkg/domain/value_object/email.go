@@ -1,4 +1,4 @@
-package valueobject
+package vo
 
 import (
 	"errors"
@@ -27,6 +27,6 @@ func (e Email) GetAtomicValues() []interface{} {
 	return []any{e.value}
 }
 
-func (e Email) GetValue() string {
+func (e Email) Value() string {
 	return e.value
 }

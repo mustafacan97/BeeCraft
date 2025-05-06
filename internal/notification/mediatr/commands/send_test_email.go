@@ -4,7 +4,8 @@ import (
 	"context"
 	"platform/internal/notification/repositories"
 	email_sender "platform/internal/notification/services/emailSender"
-	"platform/pkg/domain/valueobject"
+	"platform/internal/notification/services/encryption"
+	vo "platform/pkg/domain/value_object"
 
 	"github.com/google/uuid"
 )
@@ -17,11 +18,15 @@ type SendTestEmailCommand struct {
 type SendTestEmailCommandResponse struct{}
 
 type SendTestEmailCommandHandler struct {
+	encryption encryption.EncryptionService
 	repository repositories.EmailAccountRepository
 }
 
-func NewSendTestEmailCommandHandler(repository repositories.EmailAccountRepository) *SendTestEmailCommandHandler {
-	return &SendTestEmailCommandHandler{repository: repository}
+func NewSendTestEmailCommandHandler(encryption encryption.EncryptionService, repository repositories.EmailAccountRepository) *SendTestEmailCommandHandler {
+	return &SendTestEmailCommandHandler{
+		encryption: encryption,
+		repository: repository,
+	}
 }
 
 func (c *SendTestEmailCommandHandler) Handle(ctx context.Context, command *SendTestEmailCommand) (*UpdateEmailAccountCommandResponse, error) {
@@ -30,8 +35,8 @@ func (c *SendTestEmailCommandHandler) Handle(ctx context.Context, command *SendT
 		return nil, nil
 	}
 
-	toEmail, _ := valueobject.NewEmail(command.To)
+	toEmail, _ := vo.NewEmail(command.To)
 	email, _ := email_sender.BaseEmailDetail("Test Email", "<h1>Hello World!</h1>", ea.GetEmail(), toEmail)
-	email_sender.SendEmail(ea, email)
+	email_sender.SendEmail(c.encryption, ea, email)
 	return nil, nil
 }

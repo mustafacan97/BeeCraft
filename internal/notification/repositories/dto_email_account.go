@@ -2,8 +2,8 @@ package repositories
 
 import (
 	"platform/internal/notification/domain"
-	valueObjectInternal "platform/internal/notification/domain/value_object"
-	valueObjectExternal "platform/pkg/domain/valueobject"
+	voInternal "platform/internal/notification/domain/value_object"
+	voExternal "platform/pkg/domain/value_object"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,7 +35,7 @@ func (dto *EmailAccountDTO) ToDomain() *domain.EmailAccount {
 	entity := &domain.EmailAccount{}
 
 	// Email is coming from database, we are sure it is valid, so ignore error
-	email, _ := valueObjectExternal.NewEmail(dto.Email)
+	email, _ := voExternal.NewEmail(dto.Email)
 
 	entity.SetID(dto.ID)
 	entity.SetProjectID(dto.ProjectID)
@@ -44,14 +44,15 @@ func (dto *EmailAccountDTO) ToDomain() *domain.EmailAccount {
 	entity.SetHost(dto.Host)
 	entity.SetPort(dto.Port)
 	entity.SetEnableSSL(dto.EnableSsl)
-	entity.SetSMTPType(dto.TypeID)
+	entity.SetSmtpType(dto.TypeID)
 	entity.SetCreatedAt(dto.CreatedAt)
 
 	if dto.TypeID == domain.Login {
 		// Username and password can be null in database, so we should check it and if they are null set to empty string
 		username := ptrToString(dto.Username)
 		password := ptrToString(dto.Password)
-		entity.TraditionalCredentials.SetCredentials(username, password)
+		credentials := voInternal.NewTraditionalCredentials(username, password)
+		entity.SetTraditionalCredentials(credentials)
 
 		return entity
 	}
@@ -60,13 +61,15 @@ func (dto *EmailAccountDTO) ToDomain() *domain.EmailAccount {
 	clientID := ptrToString(dto.ClientID)
 	tenantID := ptrToString(dto.TenantID)
 	clientSecret := ptrToString(dto.ClientSecret)
-	entity.OAuth2Credentials.SetCredentials(clientID, tenantID, clientSecret)
+	credentials := voInternal.NewOAuth2Credentials(clientID, tenantID, clientSecret)
+	entity.SetOAuth2Credentials(credentials)
 
 	// AccessToken, RefreshToken and ExpireAt can be null in database, so we should check it and if they are null set to empty string
 	accessToken := ptrToString(dto.AccessToken)
 	refreshToken := ptrToString(dto.RefreshToken)
 	expireAt := ptrToTime(dto.ExpireAt)
-	entity.TokenInformation = valueObjectInternal.NewTokenInformation(accessToken, refreshToken, expireAt)
+	tokenInfo := voInternal.NewTokenInformation(accessToken, refreshToken, expireAt)
+	entity.SetTokenInformation(tokenInfo)
 
 	return entity
 }
@@ -75,30 +78,33 @@ func (dto *EmailAccountDTO) ToDomain() *domain.EmailAccount {
 func (dto *EmailAccountDTO) ToDTO(ea *domain.EmailAccount) *EmailAccountDTO {
 	dto.ID = ea.GetID()
 	dto.ProjectID = ea.GetProjectID()
-	dto.Email = ea.GetEmail().GetValue()
+	dto.Email = ea.GetEmail().Value()
 	dto.DisplayName = ea.GetDisplayName()
 	dto.Host = ea.GetHost()
 	dto.Port = ea.GetPort()
 	dto.EnableSsl = ea.GetEnableSSL()
 	dto.TypeID = ea.GetSmtpType()
-	dto.CreatedAt = ea.GetCreatedDate()
+	dto.CreatedAt = ea.GetCreatedAt()
 
-	if ea.TraditionalCredentials != nil {
-		username, password := ea.TraditionalCredentials.GetCredentials()
+	traditionalCredentials := ea.GetTraditionalCredentials()
+	if traditionalCredentials != nil {
+		username, password := traditionalCredentials.Credentials()
 		dto.Username = ptrToStringValue(username)
 		dto.Password = ptrToStringValue(password)
 		return dto
 	}
 
-	if ea.OAuth2Credentials != nil {
-		clientID, tenantID, clientSecret := ea.OAuth2Credentials.GetCredentials()
+	oauth2Credentials := ea.GetOAuth2Credentials()
+	if oauth2Credentials != nil {
+		clientID, tenantID, clientSecret := oauth2Credentials.Credentials()
 		dto.ClientID = ptrToStringValue(clientID)
 		dto.TenantID = ptrToStringValue(tenantID)
 		dto.ClientSecret = ptrToStringValue(clientSecret)
 	}
 
-	if ea.TokenInformation != nil {
-		accessToken, refreshToken, expireAt := ea.TokenInformation.GetTokenInformation()
+	tokenInfo := ea.GetTokenInformation()
+	if tokenInfo != nil {
+		accessToken, refreshToken, expireAt := tokenInfo.TokenInformation()
 		dto.AccessToken = ptrToStringValue(accessToken)
 		dto.RefreshToken = ptrToStringValue(refreshToken)
 		dto.ExpireAt = ptrToTimeValue(expireAt)

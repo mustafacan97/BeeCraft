@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"platform/internal/notification/domain"
 	"platform/internal/shared"
-	"platform/pkg/domain/valueobject"
+	vo "platform/pkg/domain/value_object"
 	"platform/pkg/services/cache"
 
 	"github.com/google/uuid"
@@ -64,7 +64,7 @@ func (p *pgEmailAccountRepository) GetAll(ctx context.Context, page, pageSize in
 	return accounts, totalCount, nil
 }
 
-func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email valueobject.Email) (*domain.EmailAccount, error) {
+func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email vo.Email) (*domain.EmailAccount, error) {
 	// STEP-1: Get project identifier and validate
 	pidVal := ctx.Value(shared.ProjectIDContextKey)
 	projectID, ok := pidVal.(uuid.UUID)
@@ -75,7 +75,7 @@ func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email valueob
 
 	// STEP-2: Create a cache key
 	cacheKey := cache.CacheKey{
-		Key:  fmt.Sprintf("notification:email_accounts:%s:%s", projectID.String(), email.GetValue()),
+		Key:  fmt.Sprintf("notification:email_accounts:%s:%s", projectID.String(), email.Value()),
 		Time: cache.DefaultTTL,
 	}
 
@@ -98,7 +98,7 @@ func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email valueob
 
 	// STEP-5: Get result from database
 	sql := "SELECT * FROM notification.email_accounts WHERE project_id = $1 AND email = $2"
-	rows, err := p.pool.Query(ctx, sql, projectID, email.GetValue())
+	rows, err := p.pool.Query(ctx, sql, projectID, email.Value())
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +145,15 @@ func (p *pgEmailAccountRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 
 // COMMAND
 func (p *pgEmailAccountRepository) Create(ctx context.Context, ea *domain.EmailAccount) error {
+	// STEP-1: Get project identifier and validate
+	pidVal := ctx.Value(shared.ProjectIDContextKey)
+	projectID, ok := pidVal.(uuid.UUID)
+	if !ok {
+		zap.L().Error("project ID not found in context", zap.Any("value", pidVal))
+		return shared.ErrInvalidContext
+	}
+	ea.SetProjectID(projectID)
+
 	query := `
 		INSERT INTO notification.email_accounts (
 			id,

@@ -2,9 +2,9 @@ package queries
 
 import (
 	"context"
-	internalValueObject "platform/internal/notification/domain/value_object"
+	voInternal "platform/internal/notification/domain/value_object"
 	"platform/internal/notification/repositories"
-	"platform/pkg/domain/valueobject"
+	voExternal "platform/pkg/domain/value_object"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,18 +15,18 @@ type GetEmailAccountByIDQuery struct {
 }
 
 type GetEmailAccountByIDQueryResponse struct {
-	ID                     uuid.UUID                                  `json:"id"`
-	ProjectID              uuid.UUID                                  `json:"project_id"`
-	TypeId                 int                                        `json:"type_id"`
-	DisplayName            string                                     `json:"display_name"`
-	Host                   string                                     `json:"host"`
-	EnableSSL              bool                                       `json:"enable_ssl"`
-	CreatedAt              time.Time                                  `json:"created_at"`
-	Port                   int                                        `json:"port"`
-	Email                  valueobject.Email                          `json:"email"`
-	TraditionalCredentials *internalValueObject.TraditionalCredential `json:"traditional_credentials"`
-	OAuth2Credentials      *internalValueObject.OAuth2Credential      `json:"oauth2_credentials"`
-	TokenInformation       *internalValueObject.TokenInformation      `json:"token_information"`
+	ID                     uuid.UUID                          `json:"id"`
+	ProjectID              uuid.UUID                          `json:"project_id"`
+	TypeId                 int                                `json:"type_id"`
+	DisplayName            string                             `json:"display_name"`
+	Host                   string                             `json:"host"`
+	EnableSSL              bool                               `json:"enable_ssl"`
+	CreatedAt              time.Time                          `json:"created_at"`
+	Port                   int                                `json:"port"`
+	Email                  voExternal.Email                   `json:"email"`
+	TraditionalCredentials *voInternal.TraditionalCredentials `json:"traditional_credentials"`
+	OAuth2Credentials      *voInternal.OAuth2Credentials      `json:"oauth2_credentials"`
+	TokenInformation       *voInternal.TokenInformation       `json:"token_information"`
 }
 
 type GetEmailAccountByIDQueryHandler struct {
@@ -54,12 +54,12 @@ func (c *GetEmailAccountByIDQueryHandler) Handle(ctx context.Context, query *Get
 		DisplayName:            emailAccount.GetDisplayName(),
 		Host:                   emailAccount.GetHost(),
 		Port:                   emailAccount.GetPort(),
-		EnableSSL:              emailAccount.IsSslEnabled(),
+		EnableSSL:              emailAccount.GetEnableSSL(),
 		TypeId:                 emailAccount.GetSmtpType(),
-		TraditionalCredentials: emailAccount.TraditionalCredentials,
-		OAuth2Credentials:      emailAccount.OAuth2Credentials,
-		TokenInformation:       emailAccount.TokenInformation,
-		CreatedAt:              emailAccount.GetCreatedDate(),
+		TraditionalCredentials: emailAccount.GetTraditionalCredentials(),
+		OAuth2Credentials:      emailAccount.GetOAuth2Credentials(),
+		TokenInformation:       emailAccount.GetTokenInformation(),
+		CreatedAt:              emailAccount.GetCreatedAt(),
 	}
 
 	return base, nil

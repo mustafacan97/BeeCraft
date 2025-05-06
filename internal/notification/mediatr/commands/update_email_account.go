@@ -2,11 +2,11 @@ package commands
 
 import (
 	"context"
-	"errors"
-	internalDomain "platform/internal/notification/domain"
-	internalValueObject "platform/internal/notification/domain/value_object"
+	"platform/internal/notification/domain"
+	voInternal "platform/internal/notification/domain/value_object"
 	"platform/internal/notification/repositories"
-	"platform/pkg/domain/valueobject"
+	"platform/internal/notification/services/encryption"
+	voExternal "platform/pkg/domain/value_object"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,11 +33,15 @@ type UpdateEmailAccountCommand struct {
 type UpdateEmailAccountCommandResponse struct{}
 
 type UpdateEmailAccountCommandHandler struct {
+	encryption encryption.EncryptionService
 	repository repositories.EmailAccountRepository
 }
 
-func NewUpdateEmailAccountCommandHandler(repository repositories.EmailAccountRepository) *UpdateEmailAccountCommandHandler {
-	return &UpdateEmailAccountCommandHandler{repository: repository}
+func NewUpdateEmailAccountCommandHandler(encryption encryption.EncryptionService, repository repositories.EmailAccountRepository) *UpdateEmailAccountCommandHandler {
+	return &UpdateEmailAccountCommandHandler{
+		encryption: encryption,
+		repository: repository,
+	}
 }
 
 func (c *UpdateEmailAccountCommandHandler) Handle(ctx context.Context, command *UpdateEmailAccountCommand) (*UpdateEmailAccountCommandResponse, error) {
@@ -46,7 +50,7 @@ func (c *UpdateEmailAccountCommandHandler) Handle(ctx context.Context, command *
 		return nil, nil
 	}
 
-	email, err := valueobject.NewEmail(command.Email)
+	email, err := voExternal.NewEmail(command.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -72,38 +76,31 @@ func (c *UpdateEmailAccountCommandHandler) Handle(ctx context.Context, command *
 	}
 
 	if ea.GetSmtpType() != command.TypeID {
-		ea.SetSMTPType(command.TypeID)
+		ea.SetSmtpType(command.TypeID)
 	}
 
-	switch command.TypeID {
-	case internalDomain.Login:
-		encrypted, err := internalValueObject.EncryptAES(command.Password)
+	if command.TypeID == domain.Login {
+		encrypted, err := c.encryption.Encrypt(command.Password)
 		if err != nil {
 			return nil, err
 		}
-		credentials, err := internalValueObject.NewTraditionalCredentials(command.Username, encrypted)
-		if err != nil {
-			return nil, err
+		oldCredentials := ea.GetTraditionalCredentials()
+		newCredentials := voInternal.NewTraditionalCredentials(command.Username, encrypted)
+		if (oldCredentials == nil && newCredentials != nil) || !oldCredentials.Equals(newCredentials) {
+			ea.SetTraditionalCredentials(newCredentials)
 		}
-		if ea.TraditionalCredentials == nil || !ea.TraditionalCredentials.Equals(credentials) {
-			ea.SetTraditionalCredentials(credentials)
+	} else if command.TypeID == domain.GmailOAuth2 || command.TypeID == domain.MicrosoftOAuth2 {
+		oldCredentials := ea.GetOAuth2Credentials()
+		newCredentials := voInternal.NewOAuth2Credentials(command.ClientID, command.TenantID, command.ClientSecret)
+		if (oldCredentials == nil && newCredentials != nil) || !oldCredentials.Equals(newCredentials) {
+			ea.SetOAuth2Credentials(newCredentials)
 		}
-	case internalDomain.GmailOAuth2:
-	case internalDomain.MicrosoftOAuth2:
-		credentials, err := internalValueObject.NewOAuth2Credentials(command.ClientID, command.TenantID, command.ClientSecret)
-		if err != nil {
-			return nil, err
+
+		oldTokenInfo := ea.GetTokenInformation()
+		newTokenInfo := voInternal.NewTokenInformation(command.AccessToken, command.RefreshToken, command.ExpireAt)
+		if (oldTokenInfo == nil && newTokenInfo != nil) || !oldTokenInfo.Equals(newTokenInfo) {
+			ea.SetTokenInformation(newTokenInfo)
 		}
-		if ea.OAuth2Credentials == nil || !ea.OAuth2Credentials.Equals(credentials) {
-			ea.SetOAuth2Credentials(credentials)
-		}
-		accessToken, refreshToken, expireAt := ea.TokenInformation.GetTokenInformation()
-		if accessToken != command.AccessToken || refreshToken != command.RefreshToken || expireAt != command.ExpireAt {
-			newTokenInformation := internalValueObject.NewTokenInformation(command.AccessToken, command.RefreshToken, command.ExpireAt)
-			ea.SetTokenInformation(newTokenInformation)
-		}
-	default:
-		return nil, errors.New("invalid smtp type")
 	}
 
 	err = c.repository.Update(ctx, ea)

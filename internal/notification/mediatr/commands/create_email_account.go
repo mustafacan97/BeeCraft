@@ -2,11 +2,12 @@ package commands
 
 import (
 	"context"
+	"platform/internal/notification/domain"
 	internalDomain "platform/internal/notification/domain"
-	internalValueObject "platform/internal/notification/domain/value_object"
+	voInternal "platform/internal/notification/domain/value_object"
 	"platform/internal/notification/repositories"
-	"platform/internal/shared"
-	"platform/pkg/domain/valueobject"
+	"platform/internal/notification/services/encryption"
+	voExternal "platform/pkg/domain/value_object"
 
 	"github.com/google/uuid"
 )
@@ -31,44 +32,52 @@ type CreateEmailAccountCommandResponse struct {
 }
 
 type CreateEmailAccountCommandHandler struct {
+	encryption encryption.EncryptionService
 	repository repositories.EmailAccountRepository
 }
 
-func NewCreateEmailAccountCommandHandler(repository repositories.EmailAccountRepository) *CreateEmailAccountCommandHandler {
-	return &CreateEmailAccountCommandHandler{repository: repository}
+func NewCreateEmailAccountCommandHandler(encryption encryption.EncryptionService, repository repositories.EmailAccountRepository) *CreateEmailAccountCommandHandler {
+	return &CreateEmailAccountCommandHandler{
+		encryption: encryption,
+		repository: repository,
+	}
 }
 
 func (c *CreateEmailAccountCommandHandler) Handle(ctx context.Context, command *CreateEmailAccountCommand) (*CreateEmailAccountCommandResponse, error) {
-	email, err := valueobject.NewEmail(command.Email)
+	email, err := voExternal.NewEmail(command.Email)
 	if err != nil {
 		return nil, err
 	}
 
-	projectID := ctx.Value(shared.ProjectIDContextKey).(uuid.UUID)
-	emailAccount := internalDomain.NewEmailAccount(uuid.New(), projectID, command.TypeID, email, command.DisplayName, command.Host, command.Port, command.EnableSSL)
+	ea := domain.EmailAccount{}
+	emailAccountID := uuid.New()
+	ea.SetID(emailAccountID)
+	ea.SetEmail(email)
+	ea.SetSmtpType(command.TypeID)
+	ea.SetDisplayName(command.DisplayName)
+	ea.SetHost(command.Host)
+	ea.SetPort(command.Port)
+	ea.SetEnableSSL(command.EnableSSL)
 
 	if command.TypeID == internalDomain.Login {
-		encrypted, err := internalValueObject.EncryptAES(command.Password)
+		encrypted, err := c.encryption.Encrypt(command.Password)
 		if err != nil {
 			return nil, err
 		}
-		credentials, err := internalValueObject.NewTraditionalCredentials(command.Username, encrypted)
-		if err != nil {
-			return nil, err
-		}
-		emailAccount.SetTraditionalCredentials(credentials)
+		credentials := voInternal.NewTraditionalCredentials(command.Username, encrypted)
+		ea.SetTraditionalCredentials(credentials)
 	} else {
-		credentials, err := internalValueObject.NewOAuth2Credentials(command.ClientID, command.ClientSecret, command.TenantID)
+		credentials := voInternal.NewOAuth2Credentials(command.ClientID, command.TenantID, command.ClientSecret)
 		if err != nil {
 			return nil, err
 		}
-		emailAccount.SetOAuth2Credentials(credentials)
+		ea.SetOAuth2Credentials(credentials)
 	}
 
-	err = c.repository.Create(ctx, emailAccount)
+	err = c.repository.Create(ctx, &ea)
 	if err != nil {
 		return nil, err
 	}
 
-	return &CreateEmailAccountCommandResponse{ID: emailAccount.GetID()}, nil
+	return &CreateEmailAccountCommandResponse{ID: emailAccountID}, nil
 }

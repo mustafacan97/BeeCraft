@@ -60,7 +60,7 @@ func (h *OAuth2CallbackHandler) Handle(ctx context.Context, req *OAuth2CallbackR
 		return baseHandler.FailedResponse[shared.HALResource](errors.New("email account not found")), nil
 	}
 
-	clientID, tenantID, clientSecret := resp.OAuth2Credentials.GetCredentials()
+	clientID, tenantID, clientSecret := resp.OAuth2Credentials.Credentials()
 	oauth2Config := &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
@@ -88,7 +88,7 @@ func (h *OAuth2CallbackHandler) Handle(ctx context.Context, req *OAuth2CallbackR
 	oauth2Credentials := resp.OAuth2Credentials
 	command := commands.UpdateEmailAccountCommand{
 		ID:           emailAccountID,
-		Email:        resp.Email.GetValue(),
+		Email:        resp.Email.Value(),
 		DisplayName:  resp.DisplayName,
 		Host:         resp.Host,
 		Port:         resp.Port,
@@ -99,11 +99,11 @@ func (h *OAuth2CallbackHandler) Handle(ctx context.Context, req *OAuth2CallbackR
 		ExpireAt:     token.Expiry,
 	}
 	if traditionalCredentials != nil {
-		username, password := traditionalCredentials.GetCredentials()
+		username, password := traditionalCredentials.Credentials()
 		command.Username = username
 		command.Password = password
 	} else if oauth2Credentials != nil {
-		clientID, tenantID, clientSecret := oauth2Credentials.GetCredentials()
+		clientID, tenantID, clientSecret := oauth2Credentials.Credentials()
 		command.ClientID = clientID
 		command.TenantID = tenantID
 		command.ClientSecret = clientSecret

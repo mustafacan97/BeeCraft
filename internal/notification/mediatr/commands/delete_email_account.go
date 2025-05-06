@@ -18,8 +18,8 @@ type DeleteEmailAccountCommandHandler struct {
 	repository repositories.EmailAccountRepository
 }
 
-func NewDeleteEmailAccountCommandHandler(repository repositories.EmailAccountRepository) DeleteEmailAccountCommandHandler {
-	return DeleteEmailAccountCommandHandler{repository: repository}
+func NewDeleteEmailAccountCommandHandler(repository repositories.EmailAccountRepository) *DeleteEmailAccountCommandHandler {
+	return &DeleteEmailAccountCommandHandler{repository: repository}
 }
 
 func (c *DeleteEmailAccountCommandHandler) Handle(ctx context.Context, command *DeleteEmailAccountCommand) (*DeleteEmailAccountCommandResponse, error) {

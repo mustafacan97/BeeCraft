@@ -46,7 +46,7 @@ func (h *GetEmailAccountHandler) Handle(ctx context.Context, req *GetEmailAccoun
 	}
 
 	response := GetEmailAccountResponse{
-		Email:       resp.Email.GetValue(),
+		Email:       resp.Email.Value(),
 		DisplayName: resp.DisplayName,
 		Host:        resp.Host,
 		Port:        resp.Port,
@@ -56,11 +56,11 @@ func (h *GetEmailAccountHandler) Handle(ctx context.Context, req *GetEmailAccoun
 
 	switch resp.TypeId {
 	case domain.Login:
-		username, password := resp.TraditionalCredentials.GetCredentials()
+		username, password := resp.TraditionalCredentials.Credentials()
 		response.Username = username
 		response.Password = password
 	case domain.GmailOAuth2, domain.MicrosoftOAuth2:
-		clientID, tenantID, clientSecret := resp.OAuth2Credentials.GetCredentials()
+		clientID, tenantID, clientSecret := resp.OAuth2Credentials.Credentials()
 		response.ClientID = clientID
 		response.TenantID = tenantID
 		response.ClientSecret = clientSecret

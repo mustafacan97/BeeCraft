@@ -17,7 +17,8 @@ import (
 	"os"
 	"path/filepath"
 	"platform/internal/notification/domain"
-	internalValueObject "platform/internal/notification/domain/value_object"
+	voInternal "platform/internal/notification/domain/value_object"
+	"platform/internal/notification/services/encryption"
 	"strings"
 	"time"
 
@@ -25,7 +26,7 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
-func SendEmail(emailAccount *domain.EmailAccount, request *EmailDetail) error {
+func SendEmail(encryption encryption.EncryptionService, emailAccount *domain.EmailAccount, request *EmailDetail) error {
 	// Build the MIME message into a buffer.
 	messageBuffer, err := buildMIMEMessage(request)
 	if err != nil {
@@ -33,18 +34,18 @@ func SendEmail(emailAccount *domain.EmailAccount, request *EmailDetail) error {
 	}
 
 	// Build an SMTP client with proper authentication.
-	smtpClient, err := buildSmtpClient(emailAccount)
+	smtpClient, err := buildSmtpClient(encryption, emailAccount)
 	if err != nil {
 		return err
 	}
 	defer smtpClient.Quit()
 
 	// Set the sender, recipients (To, Cc, Bcc) and send the email.
-	if err = smtpClient.Mail(request.from.GetValue()); err != nil {
+	if err = smtpClient.Mail(request.from.Value()); err != nil {
 		return err
 	}
 
-	if err = smtpClient.Rcpt(request.to.GetValue()); err != nil {
+	if err = smtpClient.Rcpt(request.to.Value()); err != nil {
 		return err
 	}
 
@@ -85,13 +86,13 @@ func buildMIMEMessage(request *EmailDetail) (*bytes.Buffer, error) {
 	buf.WriteString("Content-Transfer-Encoding: base64\r\n")
 	buf.WriteString(fmt.Sprintf("Date: %s\r\n", time.Now().Format(time.RFC1123Z)))
 	buf.WriteString(fmt.Sprintf("Subject: %s\r\n", request.subject))
-	buf.WriteString(fmt.Sprintf("From: %s\r\n", request.from.GetValue()))
-	buf.WriteString(fmt.Sprintf("To: %s\r\n", request.to.GetValue()))
+	buf.WriteString(fmt.Sprintf("From: %s\r\n", request.from.Value()))
+	buf.WriteString(fmt.Sprintf("To: %s\r\n", request.to.Value()))
 	if len(request.cc) > 0 {
 		buf.WriteString(fmt.Sprintf("Cc: %s\r\n", strings.Join(request.cc, ", ")))
 	}
 	if request.replyTo != nil {
-		buf.WriteString(fmt.Sprintf("Reply-To: %s\r\n", request.replyTo.GetValue()))
+		buf.WriteString(fmt.Sprintf("Reply-To: %s\r\n", request.replyTo.Value()))
 	}
 	for k, v := range request.headers {
 		buf.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
@@ -164,14 +165,15 @@ func addAttachment(mixedWriter *multipart.Writer, filePath, fileName string) err
 	return err
 }
 
-func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
+func buildSmtpClient(encryption encryption.EncryptionService, ea *domain.EmailAccount) (*smtp.Client, error) {
 	tlsConfig := &tls.Config{ServerName: ea.GetHost()}
+	addr := fmt.Sprintf("%s:%d", ea.GetHost(), ea.GetPort())
 	var client *smtp.Client
 	var err error
 
 	// If SSL is enabled (implicit TLS), use tls.Dial. Otherwise use net.Dial.
-	if ea.IsSslEnabled() {
-		conn, err := tls.Dial("tcp", ea.GetAddress(), tlsConfig)
+	if ea.GetEnableSSL() {
+		conn, err := tls.Dial("tcp", addr, tlsConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +182,7 @@ func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
 			return nil, err
 		}
 	} else {
-		conn, err := net.Dial("tcp", ea.GetAddress())
+		conn, err := net.Dial("tcp", addr)
 		if err != nil {
 			return nil, err
 		}
@@ -200,8 +202,8 @@ func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
 	// Authenticate based on the email account type.
 	switch ea.GetSmtpType() {
 	case domain.Login:
-		username, password := ea.TraditionalCredentials.GetCredentials()
-		rawPassword, err := internalValueObject.DecryptAES(password)
+		username, password := ea.GetTraditionalCredentials().Credentials()
+		rawPassword, err := encryption.Decrypt(password)
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +217,7 @@ func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := client.Auth(NewOAuth2Auth(ea.GetEmail().GetValue(), token.AccessToken)); err != nil {
+		if err := client.Auth(NewOAuth2Auth(ea.GetEmail().Value(), token.AccessToken)); err != nil {
 			return nil, err
 		}
 	default:
@@ -227,7 +229,7 @@ func buildSmtpClient(ea *domain.EmailAccount) (*smtp.Client, error) {
 
 func getOAuth2Credentials(emailAccount *domain.EmailAccount) (*oauth2.Token, error) {
 	accountType := emailAccount.GetSmtpType()
-	clientID, clientSecret, tenantID := emailAccount.OAuth2Credentials.GetCredentials()
+	clientID, clientSecret, tenantID := emailAccount.GetOAuth2Credentials().Credentials()
 	if clientID == "" || clientSecret == "" {
 		return nil, errors.New("ClientId and ClientSecret are required")
 	}
@@ -235,7 +237,7 @@ func getOAuth2Credentials(emailAccount *domain.EmailAccount) (*oauth2.Token, err
 		return nil, errors.New("ClientID, ClientSecret and TenantID are required")
 	}
 
-	accessToken, refreshToken, expireAt := emailAccount.TokenInformation.GetTokenInformation()
+	accessToken, refreshToken, expireAt := emailAccount.GetTokenInformation().TokenInformation()
 	token := &oauth2.Token{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -259,7 +261,7 @@ func getOAuth2Credentials(emailAccount *domain.EmailAccount) (*oauth2.Token, err
 			return nil, err
 		}
 
-		emailAccount.TokenInformation = internalValueObject.NewTokenInformation(newToken.AccessToken, newToken.RefreshToken, newToken.Expiry)
+		emailAccount.SetTokenInformation(voInternal.NewTokenInformation(newToken.AccessToken, newToken.RefreshToken, newToken.Expiry))
 		return newToken, nil
 	}
 

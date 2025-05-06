@@ -2,7 +2,7 @@ package email_sender
 
 import (
 	"errors"
-	"platform/pkg/domain/valueobject"
+	vo "platform/pkg/domain/value_object"
 )
 
 var (
@@ -13,9 +13,9 @@ var (
 type EmailDetail struct {
 	subject            string
 	body               string
-	from               valueobject.Email
-	to                 valueobject.Email
-	replyTo            *valueobject.Email
+	from               vo.Email
+	to                 vo.Email
+	replyTo            *vo.Email
 	cc                 []string
 	bcc                []string
 	attachmentFilePath *string
@@ -24,7 +24,7 @@ type EmailDetail struct {
 	headers            map[string]string
 }
 
-func BaseEmailDetail(subject, body string, from, to valueobject.Email) (*EmailDetail, error) {
+func BaseEmailDetail(subject, body string, from, to vo.Email) (*EmailDetail, error) {
 	if subject == "" {
 		return nil, ErrSubjectRequired
 	}
@@ -43,7 +43,7 @@ func BaseEmailDetail(subject, body string, from, to valueobject.Email) (*EmailDe
 	}, nil
 }
 
-func (ed *EmailDetail) WithReplyTo(replyTo *valueobject.Email) *EmailDetail {
+func (ed *EmailDetail) WithReplyTo(replyTo *vo.Email) *EmailDetail {
 	ed.replyTo = replyTo
 	return ed
 }
