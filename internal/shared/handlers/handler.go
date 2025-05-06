@@ -83,7 +83,7 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 		resp, err := h.Handle(ctx, &req)
 		if err != nil {
 			zap.L().Error("An error occurred during request handling", zap.Error(err))
-			return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": "An unexpected error occurred. Please try again later."})
+			return c.Status(fiber.StatusOK).JSON(fiber.Map{"error_message": "An unexpected error occurred. Please try again later."})
 		}
 
 		err = c.Next()

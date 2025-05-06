@@ -4,7 +4,7 @@ import "platform/internal/shared"
 
 type Response[T any] struct {
 	ResponseStatus int    `json:"-"`
-	ErrorMessage   string `json:"errorMessage,omitempty"`
+	ErrorMessage   string `json:"error_message,omitempty"`
 	Message        string `json:"message,omitempty"`
 	Data           *T     `json:"data,omitempty"`
 	shared.HALResource
@@ -49,9 +49,9 @@ func CreatedResponseWithoutData[T any]() *Response[T] {
 	}
 }
 
-func ConflictResponse[T any](message string) *Response[T] {
+func ConflictResponse[T any](err error) *Response[T] {
 	return &Response[T]{
-		Message:        message,
 		ResponseStatus: 409,
+		ErrorMessage:   err.Error(),
 	}
 }

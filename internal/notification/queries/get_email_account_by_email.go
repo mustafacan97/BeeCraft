@@ -15,18 +15,17 @@ type GetEmailAccountByEmailQuery struct {
 }
 
 type GetEmailAccountByEmailQueryResponse struct {
-	ID                     uuid.UUID                                  `json:"id"`
-	ProjectID              uuid.UUID                                  `json:"project_id"`
-	TypeId                 int                                        `json:"type_id"`
-	DisplayName            string                                     `json:"display_name"`
-	Host                   string                                     `json:"host"`
-	EnableSSL              bool                                       `json:"enable_ssl"`
-	CreatedAt              time.Time                                  `json:"created_at"`
-	Port                   int                                        `json:"port"`
-	Email                  valueobject.Email                          `json:"email"`
-	TraditionalCredentials *internalValueObject.TraditionalCredential `json:"traditional_credentials"`
-	OAuth2Credentials      *internalValueObject.OAuth2Credential      `json:"oauth2_credentials"`
-	TokenInformation       *internalValueObject.TokenInformation      `json:"token_information"`
+	ID                     uuid.UUID
+	ProjectID              uuid.UUID
+	Email                  valueobject.Email
+	DisplayName            string
+	Host                   string
+	Port                   int
+	EnableSSL              bool
+	TypeId                 int
+	TraditionalCredentials *internalValueObject.TraditionalCredential
+	OAuth2Credentials      *internalValueObject.OAuth2Credential
+	CreatedAt              time.Time
 }
 
 type GetEmailAccountByEmailQueryHandler struct {
@@ -47,23 +46,21 @@ func (c *GetEmailAccountByEmailQueryHandler) Handle(ctx context.Context, query *
 	if err != nil {
 		return nil, err
 	}
-
 	if emailAccount == nil {
 		return nil, nil
 	}
 
 	base := &GetEmailAccountByEmailQueryResponse{
-		ID:                     emailAccount.ID,
+		ID:                     emailAccount.GetID(),
 		ProjectID:              emailAccount.GetProjectID(),
 		Email:                  emailAccount.GetEmail(),
 		DisplayName:            emailAccount.GetDisplayName(),
 		Host:                   emailAccount.GetHost(),
 		Port:                   emailAccount.GetPort(),
-		TraditionalCredentials: emailAccount.TraditionalCredentials,
 		EnableSSL:              emailAccount.IsSslEnabled(),
 		TypeId:                 emailAccount.GetSmtpType(),
+		TraditionalCredentials: emailAccount.TraditionalCredentials,
 		OAuth2Credentials:      emailAccount.OAuth2Credentials,
-		TokenInformation:       emailAccount.TokenInformation,
 		CreatedAt:              emailAccount.GetCreatedDate(),
 	}
 

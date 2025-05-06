@@ -2,14 +2,17 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"platform/internal/notification/domain"
 	"platform/internal/shared"
 	"platform/pkg/domain/valueobject"
+	"platform/pkg/services/cache"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 var (
@@ -19,11 +22,15 @@ var (
 )
 
 type pgEmailAccountRepository struct {
-	pool *pgxpool.Pool
+	pool  *pgxpool.Pool
+	cache cache.CacheManager
 }
 
-func NewPgEmailAccountRepository(pool *pgxpool.Pool) EmailAccountRepository {
-	return &pgEmailAccountRepository{pool: pool}
+func NewPgEmailAccountRepository(pool *pgxpool.Pool, cache cache.CacheManager) EmailAccountRepository {
+	return &pgEmailAccountRepository{
+		pool:  pool,
+		cache: cache,
+	}
 }
 
 // QUERY
@@ -58,7 +65,38 @@ func (p *pgEmailAccountRepository) GetAll(ctx context.Context, page, pageSize in
 }
 
 func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email valueobject.Email) (*domain.EmailAccount, error) {
-	projectID, _ := ctx.Value(shared.ProjectIDContextKey).(uuid.UUID)
+	// STEP-1: Get project identifier and validate
+	pidVal := ctx.Value(shared.ProjectIDContextKey)
+	projectID, ok := pidVal.(uuid.UUID)
+	if !ok {
+		zap.L().Error("project ID not found in context", zap.Any("value", pidVal))
+		return nil, shared.ErrInvalidContext
+	}
+
+	// STEP-2: Create a cache key
+	cacheKey := cache.CacheKey{
+		Key:  fmt.Sprintf("notification:email_accounts:%s:%s", projectID.String(), email.GetValue()),
+		Time: cache.DefaultTTL,
+	}
+
+	// STEP-3: Create default DTO object
+	var dto EmailAccountDTO
+
+	// STEP-4: Check if the data is in the cache service
+	cached, err := p.cache.Get(ctx, cacheKey)
+	if err != nil {
+		zap.L().Warn("cache GET error", zap.Error(err), zap.String("key", cacheKey.Key))
+	} else if cached != "" {
+		if err := json.Unmarshal([]byte(cached), &dto); err == nil {
+			return dto.ToDomain(), nil
+		}
+
+		// Clear any corrupted data
+		_ = p.cache.Remove(ctx, cacheKey)
+		zap.L().Warn("cache unmarshal failed, key removed", zap.String("key", cacheKey.Key), zap.Error(err))
+	}
+
+	// STEP-5: Get result from database
 	sql := "SELECT * FROM notification.email_accounts WHERE project_id = $1 AND email = $2"
 	rows, err := p.pool.Query(ctx, sql, projectID, email.GetValue())
 	if err != nil {
@@ -66,12 +104,20 @@ func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email valueob
 	}
 	defer rows.Close()
 
-	dto, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[EmailAccountDTO])
+	dto, err = pgx.CollectOneRow(rows, pgx.RowToStructByName[EmailAccountDTO])
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
+	}
+
+	// STEP-6: Save result the cache service
+	if serialized, err := json.Marshal(dto); err == nil {
+		err = p.cache.Set(ctx, cacheKey, string(serialized))
+		if err != nil {
+			zap.L().Error("an error occurred while writing to cache", zap.Error(err))
+		}
 	}
 
 	return dto.ToDomain(), nil

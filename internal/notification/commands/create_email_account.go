@@ -39,7 +39,11 @@ func NewCreateEmailAccountCommandHandler(repository repositories.EmailAccountRep
 }
 
 func (c *CreateEmailAccountCommandHandler) Handle(ctx context.Context, command *CreateEmailAccountCommand) (*CreateEmailAccountCommandResponse, error) {
-	email, _ := valueobject.NewEmail(command.Email)
+	email, err := valueobject.NewEmail(command.Email)
+	if err != nil {
+		return nil, err
+	}
+
 	projectID := ctx.Value(shared.ProjectIDContextKey).(uuid.UUID)
 	emailAccount := internalDomain.NewEmailAccount(uuid.New(), projectID, command.TypeID, email, command.DisplayName, command.Host, command.Port, command.EnableSSL)
 
@@ -61,7 +65,7 @@ func (c *CreateEmailAccountCommandHandler) Handle(ctx context.Context, command *
 		emailAccount.SetOAuth2Credentials(credentials)
 	}
 
-	err := c.repository.Create(ctx, emailAccount)
+	err = c.repository.Create(ctx, emailAccount)
 	if err != nil {
 		return nil, err
 	}

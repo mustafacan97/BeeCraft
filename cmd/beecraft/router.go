@@ -3,6 +3,7 @@ package main
 import (
 	baseHandler "platform/internal/shared/handlers"
 	"platform/internal/shared/middlewares"
+	"platform/pkg/services/cache"
 	event_bus "platform/pkg/services/eventbus"
 	mediator "platform/pkg/services/mediator"
 
@@ -20,10 +21,13 @@ import (
 
 // SetupRouter configures the Fiber app with Zap logging, recovery, routes, and handlers.
 func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
+	// Cache service
+	cacheService := cache.NewMemcacheManager("localhost:11211")
+
 	// PostgreSQL Repositories
 	userRepository := iamRepositories.NewUserRepository(dbPool)
 	roleRepository := iamRepositories.NewRoleRepository(dbPool)
-	emailAccountRepository := notificationRepositories.NewPgEmailAccountRepository(dbPool)
+	emailAccountRepository := notificationRepositories.NewPgEmailAccountRepository(dbPool, cacheService)
 
 	// Mediator
 	getEmailAccountByEmailQueryHandler := queries.NewGetEmailAccountByEmailQueryHandler(emailAccountRepository)
@@ -59,7 +63,7 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 	// Notification Service Routes
 	notificationGroup := version1.Group("/notification", middlewares.RequireProjectID())
 	{
-		createHandler := &notificationHandlers.CreateEmailAccountHandler{}
+		createHandler := notificationHandlers.CreateEmailAccountHandler{}
 		updateHandler := &notificationHandlers.UpdateEmailAccountHandler{}
 		deleteHandler := &notificationHandlers.DeleteEmailAccountHandler{}
 		getHandler := &notificationHandlers.GetEmailAccountHandler{}
@@ -67,7 +71,7 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 		oauth2CallbackHandler := &notificationHandlers.OAuth2CallbackHandler{}
 		testEmailHandler := &notificationHandlers.SendTestEmailHandler{}
 
-		notificationGroup.Post("/email-account", baseHandler.Serve(createHandler))
+		notificationGroup.Post("/email-accounts", baseHandler.Serve(&createHandler))
 		notificationGroup.Put("/email-account/:id", baseHandler.Serve(updateHandler))
 		notificationGroup.Delete("/email-account/:id", baseHandler.Serve(deleteHandler))
 		notificationGroup.Get("/email-account/:id", baseHandler.Serve(getHandler))

@@ -12,9 +12,9 @@ func TestInMemoryCacheManager_SetAndGet(t *testing.T) {
 	ctx := context.Background()
 	cache := NewInMemoryCacheManager()
 
-	key := cacheKey{
-		Key:       "test-key",
-		CacheTime: 1, // 1 minutes
+	key := CacheKey{
+		Key:  "test-key",
+		Time: 1, // 1 minutes
 	}
 	value := "test-value"
 
@@ -30,9 +30,9 @@ func TestInMemoryCacheManager_Expiration(t *testing.T) {
 	ctx := context.Background()
 	cache := NewInMemoryCacheManager()
 
-	key := cacheKey{
-		Key:       "short-expire",
-		CacheTime: 0, // default TTL
+	key := CacheKey{
+		Key:  "short-expire",
+		Time: 0, // default TTL
 	}
 	value := "short-lived"
 
@@ -51,9 +51,9 @@ func TestInMemoryCacheManager_Remove(t *testing.T) {
 	ctx := context.Background()
 	cache := NewInMemoryCacheManager()
 
-	key := cacheKey{
-		Key:       "remove-key",
-		CacheTime: 5,
+	key := CacheKey{
+		Key:  "remove-key",
+		Time: 5,
 	}
 	value := "to-be-removed"
 
@@ -69,16 +69,16 @@ func TestInMemoryCacheManager_RemoveByPrefix(t *testing.T) {
 	ctx := context.Background()
 	cache := NewInMemoryCacheManager()
 
-	_ = cache.Set(ctx, cacheKey{"prefix:1", 5}, "val1")
-	_ = cache.Set(ctx, cacheKey{"prefix:2", 5}, "val2")
-	_ = cache.Set(ctx, cacheKey{"other:1", 5}, "val3")
+	_ = cache.Set(ctx, CacheKey{"prefix:1", 5}, "val1")
+	_ = cache.Set(ctx, CacheKey{"prefix:2", 5}, "val2")
+	_ = cache.Set(ctx, CacheKey{"other:1", 5}, "val3")
 
 	err := cache.RemoveByPrefix(ctx, "prefix:")
 	assert.NoError(t, err)
 
-	_, err1 := cache.Get(ctx, cacheKey{"prefix:1", 0})
-	_, err2 := cache.Get(ctx, cacheKey{"prefix:2", 0})
-	_, err3 := cache.Get(ctx, cacheKey{"other:1", 0})
+	_, err1 := cache.Get(ctx, CacheKey{"prefix:1", 0})
+	_, err2 := cache.Get(ctx, CacheKey{"prefix:2", 0})
+	_, err3 := cache.Get(ctx, CacheKey{"other:1", 0})
 
 	assert.Error(t, err1)
 	assert.Error(t, err2)
@@ -89,14 +89,14 @@ func TestInMemoryCacheManager_Clear(t *testing.T) {
 	ctx := context.Background()
 	cache := NewInMemoryCacheManager()
 
-	_ = cache.Set(ctx, cacheKey{"key1", 5}, "val1")
-	_ = cache.Set(ctx, cacheKey{"key2", 5}, "val2")
+	_ = cache.Set(ctx, CacheKey{"key1", 5}, "val1")
+	_ = cache.Set(ctx, CacheKey{"key2", 5}, "val2")
 
 	err := cache.Clear(ctx)
 	assert.NoError(t, err)
 
-	_, err1 := cache.Get(ctx, cacheKey{"key1", 0})
-	_, err2 := cache.Get(ctx, cacheKey{"key2", 0})
+	_, err1 := cache.Get(ctx, CacheKey{"key1", 0})
+	_, err2 := cache.Get(ctx, CacheKey{"key2", 0})
 
 	assert.Error(t, err1)
 	assert.Error(t, err2)
