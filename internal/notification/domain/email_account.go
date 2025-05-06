@@ -35,7 +35,7 @@ type EmailAccount struct {
 }
 
 func NewEmailAccount(id uuid.UUID, projectID uuid.UUID, typeID int, email valueobject.Email, displayName, host string, port int, enableSSL bool) *EmailAccount {
-	return &EmailAccount{
+	emailAccount := &EmailAccount{
 		AggregateRoot: domain.NewAggregateRoot(id),
 		projectID:     projectID,
 		typeID:        typeID,
@@ -46,6 +46,8 @@ func NewEmailAccount(id uuid.UUID, projectID uuid.UUID, typeID int, email valueo
 		enableSsl:     enableSSL,
 		createdAt:     time.Now(),
 	}
+
+	return emailAccount
 }
 
 // GETTERS

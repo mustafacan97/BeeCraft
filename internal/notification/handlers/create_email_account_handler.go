@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"platform/internal/notification/commands"
-	"platform/internal/notification/queries"
+	"platform/internal/notification/mediatr/commands"
+	event_notification "platform/internal/notification/mediatr/notifications"
+	"platform/internal/notification/mediatr/queries"
 	"platform/internal/shared"
 	"platform/internal/shared/handlers"
 	"platform/pkg/services/mediator"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -59,7 +61,15 @@ func (h *CreateEmailAccountHandler) Handle(ctx context.Context, req *CreateEmail
 		return nil, err
 	}
 
-	// STEP-3: Returns hateoas links to user
+	// STEP-3: Send notification
+	notification := &event_notification.EmailAccountCreatedEvent{
+		ProjectID: uuid.New(),
+		Email:     req.Email,
+		CreatedAt: time.Now(),
+	}
+	mediator.Publish(ctx, notification)
+
+	// STEP-4: Returns hateoas links to user
 	response := &shared.HALResource{
 		Links: createHateoasLinks(resp.ID),
 	}

@@ -8,9 +8,10 @@ import (
 	mediator "platform/pkg/services/mediator"
 
 	iamHandlers "platform/internal/iam/handlers"
-	"platform/internal/notification/commands"
 	notificationHandlers "platform/internal/notification/handlers"
-	"platform/internal/notification/queries"
+	"platform/internal/notification/mediatr/commands"
+	event_notification "platform/internal/notification/mediatr/notifications"
+	"platform/internal/notification/mediatr/queries"
 
 	iamRepositories "platform/internal/iam/repositories"
 	notificationRepositories "platform/internal/notification/repositories"
@@ -42,6 +43,10 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 	mediator.RegisterRequestHandler(createEmailAccountCommandHandler)
 	mediator.RegisterRequestHandler(updateEmailAccountCommandHandler)
 	mediator.RegisterRequestHandler(&deleteEmailAccountCommandHandler)
+
+	// Notification Handlers
+	emailAccountCreatedHandler := event_notification.EmailAccountCreatedEventHandler{}
+	mediator.RegisterNotificationHandler(&emailAccountCreatedHandler)
 
 	// Handlers
 	registerHandler := iamHandlers.NewRegisterHandler(bus, &userRepository, &roleRepository)

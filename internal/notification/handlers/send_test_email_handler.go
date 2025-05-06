@@ -3,8 +3,8 @@ package handlers
 import (
 	"context"
 	"errors"
-	"platform/internal/notification/commands"
-	"platform/internal/notification/queries"
+	"platform/internal/notification/mediatr/commands"
+	"platform/internal/notification/mediatr/queries"
 	"platform/internal/shared"
 	"platform/pkg/services/mediator"
 

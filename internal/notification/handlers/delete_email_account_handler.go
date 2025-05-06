@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"context"
-	"platform/internal/notification/commands"
+	"platform/internal/notification/mediatr/commands"
 	"platform/internal/shared"
 	"platform/pkg/services/mediator"
 

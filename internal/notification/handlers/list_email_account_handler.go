@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"context"
-	"platform/internal/notification/queries"
+	"platform/internal/notification/mediatr/queries"
 	baseHandler "platform/internal/shared/handlers"
 	"platform/pkg/services/mediator"
 	"time"
