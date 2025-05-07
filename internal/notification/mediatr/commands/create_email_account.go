@@ -6,6 +6,7 @@ import (
 	voInternal "platform/internal/notification/domain/value_object"
 	"platform/internal/notification/repositories"
 	"platform/internal/notification/services/encryption"
+	"platform/internal/shared"
 	voExternal "platform/pkg/domain/value_object"
 
 	"github.com/google/uuid"
@@ -26,7 +27,6 @@ type CreateEmailAccountCommand struct {
 }
 
 type CreateEmailAccountCommandResponse struct {
-	ID uuid.UUID
 }
 
 type CreateEmailAccountCommandHandler struct {
@@ -42,6 +42,13 @@ func NewCreateEmailAccountCommandHandler(encryption encryption.EncryptionService
 }
 
 func (c *CreateEmailAccountCommandHandler) Handle(ctx context.Context, command *CreateEmailAccountCommand) (*CreateEmailAccountCommandResponse, error) {
+	// STEP-1: Get project identifier and validate
+	pidVal := ctx.Value(shared.ProjectIDContextKey)
+	projectID, ok := pidVal.(uuid.UUID)
+	if !ok {
+		return nil, shared.ErrInvalidContext
+	}
+
 	email, err := voExternal.NewEmail(command.Email)
 	if err != nil {
 		return nil, err
@@ -50,12 +57,13 @@ func (c *CreateEmailAccountCommandHandler) Handle(ctx context.Context, command *
 	ea := domain.EmailAccount{}
 	emailAccountID := uuid.New()
 	ea.SetID(emailAccountID)
+	ea.SetProjectID(projectID)
 	ea.SetEmail(email)
-	ea.SetSmtpType(command.TypeID)
 	ea.SetDisplayName(command.DisplayName)
 	ea.SetHost(command.Host)
 	ea.SetPort(command.Port)
 	ea.SetEnableSSL(command.EnableSSL)
+	ea.SetSmtpType(command.TypeID)
 
 	if command.TypeID == domain.Login {
 		encrypted, err := c.encryption.Encrypt(command.Password)
@@ -74,5 +82,5 @@ func (c *CreateEmailAccountCommandHandler) Handle(ctx context.Context, command *
 		return nil, err
 	}
 
-	return &CreateEmailAccountCommandResponse{ID: emailAccountID}, nil
+	return nil, nil
 }

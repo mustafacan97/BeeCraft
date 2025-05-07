@@ -35,10 +35,8 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 	// Mediator Queries
 	getAllEmailAccountQueryHandler := queries.NewGetAllEmailAccountQueryHandler(emailAccountRepository)
 	getEmailAccountByEmailQueryHandler := queries.NewGetEmailAccountByEmailQueryHandler(emailAccountRepository)
-	getEmailAccountByIDQueryHandler := queries.NewGetEmailAccountByIDQueryHandler(emailAccountRepository)
 	mediator.RegisterRequestHandler(getAllEmailAccountQueryHandler)
 	mediator.RegisterRequestHandler(getEmailAccountByEmailQueryHandler)
-	mediator.RegisterRequestHandler(getEmailAccountByIDQueryHandler)
 
 	// Mediator Commands
 	createEmailAccountCommandHandler := commands.NewCreateEmailAccountCommandHandler(encryptionService, emailAccountRepository)

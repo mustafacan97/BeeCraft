@@ -4,15 +4,12 @@ import (
 	"context"
 	"platform/internal/notification/domain"
 	vo "platform/pkg/domain/value_object"
-
-	"github.com/google/uuid"
 )
 
 type EmailAccountRepository interface {
 	// QUERY
 	GetAll(ctx context.Context) ([]*domain.EmailAccount, error)
 	GetByEmail(ctx context.Context, email vo.Email) (*domain.EmailAccount, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.EmailAccount, error)
 
 	// COMMAND
 	Create(ctx context.Context, account *domain.EmailAccount) error

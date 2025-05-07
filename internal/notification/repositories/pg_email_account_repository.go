@@ -154,37 +154,8 @@ func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email vo.Emai
 	return dto.ToDomain(), nil
 }
 
-func (p *pgEmailAccountRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.EmailAccount, error) {
-	projectID, _ := ctx.Value(shared.ProjectIDContextKey).(uuid.UUID)
-	sql := "SELECT * FROM notification.email_accounts WHERE project_id = $1 AND id = $2"
-	rows, err := p.pool.Query(ctx, sql, projectID, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	dto, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[EmailAccountDTO])
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return dto.ToDomain(), nil
-}
-
 // COMMAND
 func (p *pgEmailAccountRepository) Create(ctx context.Context, ea *domain.EmailAccount) error {
-	// STEP-1: Get project identifier and validate
-	pidVal := ctx.Value(shared.ProjectIDContextKey)
-	projectID, ok := pidVal.(uuid.UUID)
-	if !ok {
-		zap.L().Error("project ID not found in context", zap.Any("value", pidVal))
-		return shared.ErrInvalidContext
-	}
-	ea.SetProjectID(projectID)
-
 	query := `
 		INSERT INTO notification.email_accounts (
 			id,
