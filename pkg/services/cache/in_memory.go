@@ -60,11 +60,11 @@ func (c *InMemoryCacheManager) Set(ctx context.Context, key CacheKey, value any)
 	return nil
 }
 
-func (c *InMemoryCacheManager) Remove(ctx context.Context, key CacheKey) error {
+func (c *InMemoryCacheManager) Remove(ctx context.Context, key string) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	delete(c.data, key.Key)
+	delete(c.data, key)
 	return nil
 }
 

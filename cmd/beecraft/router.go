@@ -68,19 +68,23 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 	}
 
 	// Notification Service Routes
-	notificationGroup := version1.Group("/notification", middlewares.RequireProjectID())
+	notificationGroup := version1.Group("/notification", middlewares.ProjectIDInjector())
 	{
 		createHandler := notificationHandlers.CreateEmailAccountHandler{}
-		updateHandler := notificationHandlers.UpdateEmailAccountHandler{}
+		notificationGroup.Post("/email-accounts", baseHandler.Serve(&createHandler))
+
 		deleteHandler := notificationHandlers.DeleteEmailAccountHandler{}
+		notificationGroup.Delete("/email-accounts/:email", baseHandler.Serve(&deleteHandler))
+
+		updateHandler := notificationHandlers.UpdateEmailAccountHandler{}
+
 		getHandler := notificationHandlers.GetEmailAccountHandler{}
 		listHandler := notificationHandlers.ListEmailAccountHandler{}
 		oauth2CallbackHandler := notificationHandlers.OAuth2CallbackHandler{}
 		testEmailHandler := notificationHandlers.SendTestEmailHandler{}
 
-		notificationGroup.Post("/email-accounts", baseHandler.Serve(&createHandler))
 		notificationGroup.Put("/email-accounts/:id", baseHandler.Serve(&updateHandler))
-		notificationGroup.Delete("/email-accounts/:id", baseHandler.Serve(&deleteHandler))
+
 		notificationGroup.Get("/email-accounts/:id", baseHandler.Serve(&getHandler))
 		notificationGroup.Get("/email-accounts", baseHandler.Serve(&listHandler))
 		notificationGroup.Get("/email-accounts/oauth2-callback", baseHandler.Serve(&oauth2CallbackHandler))

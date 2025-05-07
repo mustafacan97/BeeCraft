@@ -3,12 +3,11 @@ package commands
 import (
 	"context"
 	"platform/internal/notification/repositories"
-
-	"github.com/google/uuid"
+	voExternal "platform/pkg/domain/value_object"
 )
 
 type DeleteEmailAccountCommand struct {
-	ID uuid.UUID
+	Email string
 }
 
 type DeleteEmailAccountCommandResponse struct {
@@ -23,7 +22,11 @@ func NewDeleteEmailAccountCommandHandler(repository repositories.EmailAccountRep
 }
 
 func (c *DeleteEmailAccountCommandHandler) Handle(ctx context.Context, command *DeleteEmailAccountCommand) (*DeleteEmailAccountCommandResponse, error) {
-	err := c.repository.Delete(ctx, command.ID)
+	email, err := voExternal.NewEmail(command.Email)
+	if err != nil {
+		return nil, err
+	}
+	err = c.repository.Delete(ctx, email)
 	if err != nil {
 		return nil, err
 	}

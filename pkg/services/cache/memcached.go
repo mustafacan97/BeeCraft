@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/bradfitz/gomemcache/memcache"
@@ -37,8 +38,13 @@ func (m *MemcacheManager) Set(ctx context.Context, key CacheKey, value string) e
 	return m.client.Set(item)
 }
 
-func (m *MemcacheManager) Remove(ctx context.Context, key CacheKey) error {
-	return m.client.Delete(key.Key)
+func (m *MemcacheManager) Remove(ctx context.Context, key string) error {
+	err := m.client.Delete(key)
+	// If key not exists we act like deleted
+	if errors.Is(err, memcache.ErrCacheMiss) {
+		return nil
+	}
+	return err
 }
 
 // Memcached does not support key scanning or prefix deletes natively

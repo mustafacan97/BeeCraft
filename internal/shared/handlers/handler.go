@@ -29,6 +29,11 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 
 		ctx := c.UserContext()
 
+		if err := c.ReqHeaderParser(&req); err != nil {
+			// TODO: log here
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid request header parameters")
+		}
+
 		if err := c.ParamsParser(&req); err != nil {
 			// TODO: log here
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid URL parameters")

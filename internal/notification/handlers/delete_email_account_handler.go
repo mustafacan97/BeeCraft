@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"platform/internal/notification/mediatr/commands"
+	event_notification "platform/internal/notification/mediatr/notifications"
 	"platform/internal/shared"
 	"platform/pkg/services/mediator"
 
@@ -12,32 +13,37 @@ import (
 )
 
 type DeleteEmailAccountRequest struct {
-	ProjectID uuid.UUID `reqHeader:"X-Project-ID" json:"-" validate:"required,uuid4"`
-	ID        uuid.UUID `params:"id" json:"-" validate:"required,uuid4"`
+	Email     string    `reqHeader:"-"  params:"email" json:"-" validate:"required,email"`
+	ProjectID uuid.UUID `reqHeader:"X-Project-ID" params:"-" json:"-" validate:"required,uuid"`
 }
 
 type DeleteEmailAccountHandler struct{}
 
 func (h *DeleteEmailAccountHandler) Handle(ctx context.Context, req *DeleteEmailAccountRequest) (*baseHandler.Response[shared.HALResource], error) {
-	// STEP-1
-	ctx = context.WithValue(ctx, shared.ProjectIDContextKey, req.ProjectID)
-
-	// STEP-2
-	command := commands.DeleteEmailAccountCommand{ID: req.ID}
-	_, commandErr := mediator.Send[*commands.DeleteEmailAccountCommand, *commands.DeleteEmailAccountCommandResponse](ctx, &command)
-	if commandErr != nil {
-		return baseHandler.FailedResponse[shared.HALResource](commandErr), nil
+	// STEP-1: Delete the email account
+	command := commands.DeleteEmailAccountCommand{Email: req.Email}
+	_, err := mediator.Send[*commands.DeleteEmailAccountCommand, *commands.DeleteEmailAccountCommandResponse](ctx, &command)
+	if err != nil {
+		return baseHandler.FailedResponse[shared.HALResource](err), nil
 	}
 
-	// STEP-3
+	// STEP-2: Publish email account deleted notification
+	notification := event_notification.NewEmailAccountDeletedEvent(req.ProjectID, req.Email)
+	mediator.Publish(ctx, &notification)
+
+	// STEP-3: Return hateoas links to client
 	response := &shared.HALResource{
-		Links: shared.HALLinks{
-			"self": {
-				Href:   "",
-				Method: "GET",
-				Title:  "Get Email Account",
-			},
-		},
+		Links: createHateoasLinksForDelete(),
 	}
 	return baseHandler.SuccessResponse(response), nil
+}
+
+func createHateoasLinksForDelete() shared.HALLinks {
+	return shared.HALLinks{
+		"list": {
+			Href:   "/v1/notification/email-accounts?p=1&ps=10",
+			Method: "GET",
+			Title:  "List all emails on the first page",
+		},
+	}
 }

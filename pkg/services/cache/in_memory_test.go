@@ -58,7 +58,7 @@ func TestInMemoryCacheManager_Remove(t *testing.T) {
 	value := "to-be-removed"
 
 	_ = cache.Set(ctx, key, value)
-	_ = cache.Remove(ctx, key)
+	_ = cache.Remove(ctx, key.Key)
 
 	got, err := cache.Get(ctx, key)
 	assert.Error(t, err)

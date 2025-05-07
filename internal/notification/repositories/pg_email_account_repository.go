@@ -69,13 +69,12 @@ func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email vo.Emai
 	pidVal := ctx.Value(shared.ProjectIDContextKey)
 	projectID, ok := pidVal.(uuid.UUID)
 	if !ok {
-		zap.L().Error("project ID not found in context", zap.Any("value", pidVal))
 		return nil, shared.ErrInvalidContext
 	}
 
 	// STEP-2: Create a cache key
 	cacheKey := cache.CacheKey{
-		Key:  fmt.Sprintf("notification:email_accounts:%s:%s", projectID.String(), email.Value()),
+		Key:  cacheKeyByEmail(projectID, email),
 		Time: cache.DefaultTTL,
 	}
 
@@ -92,7 +91,7 @@ func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email vo.Emai
 		}
 
 		// Clear any corrupted data
-		_ = p.cache.Remove(ctx, cacheKey)
+		_ = p.cache.Remove(ctx, cacheKey.Key)
 		zap.L().Warn("cache unmarshal failed, key removed", zap.String("key", cacheKey.Key), zap.Error(err))
 	}
 
@@ -180,11 +179,28 @@ func (p *pgEmailAccountRepository) Create(ctx context.Context, ea *domain.EmailA
 	return err
 }
 
-func (p *pgEmailAccountRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	projectID, _ := ctx.Value(shared.ProjectIDContextKey).(uuid.UUID)
-	sql := "DELETE FROM notification.email_accounts WHERE project_id = $1 AND id = $2"
-	_, err := p.pool.Exec(ctx, sql, projectID, id)
-	return err
+func (p *pgEmailAccountRepository) Delete(ctx context.Context, email vo.Email) error {
+	// STEP-1: Get project identifier and validate
+	pidVal := ctx.Value(shared.ProjectIDContextKey)
+	projectID, ok := pidVal.(uuid.UUID)
+	if !ok {
+		return shared.ErrInvalidContext
+	}
+
+	// STEP-2: Delete from database
+	sql := "DELETE FROM notification.email_accounts WHERE project_id = $1 AND email = $2"
+	_, err := p.pool.Exec(ctx, sql, projectID, email.Value())
+	if err != nil {
+		return fmt.Errorf("failed to delete email account: %w", err)
+	}
+
+	// STEP-3: Remove related caches
+	p.clearCaches(ctx, cacheKeyByEmail(projectID, email), cacheKeyAll(projectID))
+	err = p.cache.Remove(ctx, cacheKeyByEmail(projectID, email))
+	if err != nil {
+		zap.L().Warn("an error occurred while removing cache key", zap.Error(err))
+	}
+	return nil
 }
 
 func (p *pgEmailAccountRepository) Update(ctx context.Context, account *domain.EmailAccount) error {
@@ -209,4 +225,21 @@ func (p *pgEmailAccountRepository) Update(ctx context.Context, account *domain.E
 	dto := EmailAccountDTO{}
 	_, err := p.pool.Exec(ctx, query, dto.ToDTO(account).GetValues()[0:16]...)
 	return err
+}
+
+func (p *pgEmailAccountRepository) clearCaches(ctx context.Context, keys ...string) {
+	for _, key := range keys {
+		err := p.cache.Remove(ctx, key)
+		if err != nil {
+			zap.L().Warn("an error occurred while removing cache key", zap.Error(err))
+		}
+	}
+}
+
+func cacheKeyByEmail(projectID uuid.UUID, email vo.Email) string {
+	return fmt.Sprintf("notification:email_accounts:%s:%s", projectID.String(), email.Value())
+}
+
+func cacheKeyAll(projectID uuid.UUID) string {
+	return fmt.Sprintf("notification:email_accounts:%s", projectID.String())
 }

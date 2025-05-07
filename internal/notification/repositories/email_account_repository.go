@@ -16,6 +16,6 @@ type EmailAccountRepository interface {
 
 	// COMMAND
 	Create(ctx context.Context, account *domain.EmailAccount) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, email vo.Email) error
 	Update(ctx context.Context, account *domain.EmailAccount) error
 }

@@ -44,8 +44,8 @@ func (r *RedisCacheManager) Set(ctx context.Context, key CacheKey, value string)
 	return r.client.Set(ctx, key.Key, value, ttl).Err()
 }
 
-func (r *RedisCacheManager) Remove(ctx context.Context, key CacheKey) error {
-	return r.client.Del(ctx, key.Key).Err()
+func (r *RedisCacheManager) Remove(ctx context.Context, key string) error {
+	return r.client.Del(ctx, key).Err()
 }
 
 func (r *RedisCacheManager) RemoveByPrefix(ctx context.Context, prefix string) error {

@@ -1,13 +1,15 @@
 package event_notification
 
-import (
-	"time"
-
-	"github.com/google/uuid"
-)
+import "github.com/google/uuid"
 
 type EmailAccountDeletedEvent struct {
 	ProjectID uuid.UUID `json:"project_id"`
 	Email     string    `json:"email"`
-	DeletedAt time.Time `json:"deleted_at"`
+}
+
+func NewEmailAccountDeletedEvent(projectID uuid.UUID, email string) EmailAccountDeletedEvent {
+	return EmailAccountDeletedEvent{
+		ProjectID: projectID,
+		Email:     email,
+	}
 }
