@@ -70,6 +70,9 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 	// Notification Service Routes
 	notificationGroup := version1.Group("/notification", middlewares.ProjectIDInjector())
 	{
+		testEmailHandler := notificationHandlers.SendTestEmailHandler{}
+		notificationGroup.Post("/email-accounts/:from", baseHandler.Serve(&testEmailHandler))
+
 		createHandler := notificationHandlers.CreateEmailAccountHandler{}
 		notificationGroup.Post("/email-accounts", baseHandler.Serve(&createHandler))
 
@@ -86,11 +89,6 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 		notificationGroup.Get("/email-accounts/:email", baseHandler.Serve(&getHandler))
 
 		updateHandler := notificationHandlers.UpdateEmailAccountHandler{}
-
-		testEmailHandler := notificationHandlers.SendTestEmailHandler{}
-
 		notificationGroup.Put("/email-accounts/:id", baseHandler.Serve(&updateHandler))
-
-		notificationGroup.Get("/email-accounts/:id/:email", baseHandler.Serve(&testEmailHandler))
 	}
 }

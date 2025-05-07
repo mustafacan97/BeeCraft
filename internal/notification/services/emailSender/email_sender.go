@@ -167,7 +167,7 @@ func addAttachment(mixedWriter *multipart.Writer, filePath, fileName string) err
 
 func buildSmtpClient(encryption encryption.EncryptionService, ea *domain.EmailAccount) (*smtp.Client, error) {
 	tlsConfig := &tls.Config{ServerName: ea.GetHost()}
-	addr := fmt.Sprintf("%s:%d", ea.GetHost(), ea.GetPort())
+	addr := net.JoinHostPort(ea.GetHost(), fmt.Sprintf("%d", ea.GetPort()))
 	var client *smtp.Client
 	var err error
 

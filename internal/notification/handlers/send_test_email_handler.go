@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"platform/internal/notification/mediatr/commands"
 	"platform/internal/notification/mediatr/queries"
 	"platform/internal/shared"
@@ -14,30 +14,65 @@ import (
 )
 
 type SendTestEmailRequest struct {
-	ID    uuid.UUID `params:"id" json:"-" validate:"required,uuid4"`
-	Email string    `params:"email" json:"-" validate:"required,email"`
+	ProjectID uuid.UUID `reqHeader:"X-Project-ID" params:"-" query:"-" json:"-" validate:"required,uuid"`
+	From      string    `reqHeader:"-" params:"from" query:"-" json:"-" validate:"required,email"`
+	To        string    `reqHeader:"-" params:"-" query:"-" json:"to" validate:"required,email"`
+}
+
+type SendTestEmailResponse struct {
 }
 
 type SendTestEmailHandler struct{}
 
-func (h *SendTestEmailHandler) Handle(ctx context.Context, req *SendTestEmailRequest) (*baseHandler.Response[shared.HALResource], error) {
-	query := queries.GetEmailAccountByIDQuery{ID: req.ID}
-	resp, err := mediator.Send[*queries.GetEmailAccountByIDQuery, *queries.GetEmailAccountByIDQueryResponse](ctx, &query)
+func (h *SendTestEmailHandler) Handle(ctx context.Context, req *SendTestEmailRequest) (*baseHandler.Response[SendTestEmailResponse], error) {
+	// STEP-1: Get from email
+	query := queries.GetEmailAccountByEmailQuery{Email: req.From}
+	resp, err := mediator.Send[*queries.GetEmailAccountByEmailQuery, *queries.GetEmailAccountByEmailQueryResponse](ctx, &query)
 	if err != nil {
-		return baseHandler.FailedResponse[shared.HALResource](err), nil
+		return nil, err
 	}
 	if resp == nil {
-		return baseHandler.FailedResponse[shared.HALResource](errors.New("email account not found")), nil
+		return baseHandler.NotFoundResponse[SendTestEmailResponse](), nil
 	}
 
+	// STEP-2: Send test email command
 	command := commands.SendTestEmailCommand{
-		EmailAccountID: req.ID,
-		To:             req.Email,
+		From: req.From,
+		To:   req.To,
 	}
 	_, err = mediator.Send[*commands.SendTestEmailCommand, *commands.SendTestEmailCommandResponse](ctx, &command)
 	if err != nil {
-		return baseHandler.FailedResponse[shared.HALResource](err), nil
+		return nil, err
 	}
 
-	return baseHandler.SuccessResponse(&shared.HALResource{}), nil
+	// STEP-10: Return hateoas links to user
+	respData := SendTestEmailResponse{}
+	response := baseHandler.SuccessResponse(&respData)
+	response.Links = hateoasLinksForTestEmail(req.From)
+	return response, nil
+}
+
+func hateoasLinksForTestEmail(email string) shared.HALLinks {
+	return shared.HALLinks{
+		"delete": {
+			Href:   fmt.Sprintf("/v1/notification/email-accounts/%s", email),
+			Method: "DELETE",
+			Title:  "Delete this email account",
+		},
+		"list": {
+			Href:   "/v1/notification/email-accounts?p=1&ps=10",
+			Method: "GET",
+			Title:  "List all emails on the first page",
+		},
+		"self": {
+			Href:   fmt.Sprintf("/v1/notification/email-accounts/%s", email),
+			Method: "GET",
+			Title:  "View this email account",
+		},
+		"update": {
+			Href:   fmt.Sprintf("/v1/notification/email-accounts/%s", email),
+			Method: "PUT",
+			Title:  "Update this email account",
+		},
+	}
 }

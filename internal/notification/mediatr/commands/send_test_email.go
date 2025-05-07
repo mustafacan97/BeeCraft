@@ -2,17 +2,16 @@ package commands
 
 import (
 	"context"
+	"fmt"
 	"platform/internal/notification/repositories"
 	email_sender "platform/internal/notification/services/emailSender"
 	"platform/internal/notification/services/encryption"
-	vo "platform/pkg/domain/value_object"
-
-	"github.com/google/uuid"
+	voExternal "platform/pkg/domain/value_object"
 )
 
 type SendTestEmailCommand struct {
-	EmailAccountID uuid.UUID
-	To             string
+	From string
+	To   string
 }
 
 type SendTestEmailCommandResponse struct{}
@@ -29,14 +28,23 @@ func NewSendTestEmailCommandHandler(encryption encryption.EncryptionService, rep
 	}
 }
 
-func (c *SendTestEmailCommandHandler) Handle(ctx context.Context, command *SendTestEmailCommand) (*UpdateEmailAccountCommandResponse, error) {
-	ea, _ := c.repository.GetByID(ctx, command.EmailAccountID)
-	if ea == nil {
-		return nil, nil
+func (c *SendTestEmailCommandHandler) Handle(ctx context.Context, command *SendTestEmailCommand) (*SendTestEmailCommandResponse, error) {
+	fromEmail, err := voExternal.NewEmail(command.From)
+	if err != nil {
+		return nil, err
 	}
 
-	toEmail, _ := vo.NewEmail(command.To)
-	email, _ := email_sender.BaseEmailDetail("Test Email", "<h1>Hello World!</h1>", ea.GetEmail(), toEmail)
+	toEmail, err := voExternal.NewEmail(command.To)
+	if err != nil {
+		return nil, err
+	}
+
+	ea, _ := c.repository.GetByEmail(ctx, fromEmail)
+	if ea == nil {
+		return nil, fmt.Errorf("email not found: %s", command.From)
+	}
+
+	email, _ := email_sender.BaseEmailDetail("Test Email", "<h1>Hello World!</h1>", fromEmail, toEmail)
 	email_sender.SendEmail(c.encryption, ea, email)
 	return nil, nil
 }
