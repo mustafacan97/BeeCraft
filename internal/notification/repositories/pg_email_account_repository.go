@@ -228,35 +228,45 @@ func (p *pgEmailAccountRepository) Delete(ctx context.Context, email vo.Email) e
 
 	// STEP-3: Remove related caches
 	p.clearCaches(ctx, cacheKeyByEmail(projectID, email), cacheKeyAll(projectID))
-	err = p.cache.Remove(ctx, cacheKeyByEmail(projectID, email))
-	if err != nil {
-		zap.L().Warn("an error occurred while removing cache key", zap.Error(err))
-	}
+
 	return nil
 }
 
-func (p *pgEmailAccountRepository) Update(ctx context.Context, account *domain.EmailAccount) error {
+func (p *pgEmailAccountRepository) Update(ctx context.Context, ea *domain.EmailAccount) error {
+	// STEP-1: Get project identifier and validate
+	pidVal := ctx.Value(shared.ProjectIDContextKey)
+	projectID, ok := pidVal.(uuid.UUID)
+	if !ok {
+		return shared.ErrInvalidContext
+	}
+
+	// STEP-2: Update database
 	query := `
 		UPDATE notification.email_accounts SET
-			email = $3,
-			display_name = $4,
-			host = $5,
-			port = $6,
-			enable_ssl = $7,
-			type_id = $8,			
-			username = $9,
-			password = $10,
-			client_id = $11,
-			tenant_id = $12,
-			client_secret = $13,
-			access_token = $14,
-			refresh_token = $15,
-			expire_at = $16
-		WHERE id = $1 AND project_id = $2
+			display_name = $3,
+			host = $4,
+			port = $5,
+			enable_ssl = $6,
+			type_id = $7,			
+			username = $8,
+			password = $9,
+			client_id = $10,
+			tenant_id = $11,
+			client_secret = $12,
+			access_token = $13,
+			refresh_token = $14,
+			expire_at = $15
+		WHERE project_id = $1 AND email = $2
 	`
 	dto := EmailAccountDTO{}
-	_, err := p.pool.Exec(ctx, query, dto.ToDTO(account).GetValues()[0:16]...)
-	return err
+	_, err := p.pool.Exec(ctx, query, dto.ToDTO(ea).GetValues()[1:16]...)
+	if err != nil {
+		return fmt.Errorf("failed to update email account: %w", err)
+	}
+
+	// STEP-3: Remove related caches
+	p.clearCaches(ctx, cacheKeyByEmail(projectID, ea.GetEmail()), cacheKeyAll(projectID))
+	return nil
 }
 
 func (p *pgEmailAccountRepository) clearCaches(ctx context.Context, keys ...string) {

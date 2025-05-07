@@ -52,10 +52,6 @@ func (c *UpdateEmailAccountCommandHandler) Handle(ctx context.Context, command *
 		return nil, nil
 	}
 
-	if !ea.GetEmail().Equals(email) {
-		ea.SetEmail(email)
-	}
-
 	if ea.GetDisplayName() != command.DisplayName {
 		ea.SetDisplayName(command.DisplayName)
 	}

@@ -89,6 +89,6 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 		notificationGroup.Get("/email-accounts/:email", baseHandler.Serve(&getHandler))
 
 		updateHandler := notificationHandlers.UpdateEmailAccountHandler{}
-		notificationGroup.Put("/email-accounts/:id", baseHandler.Serve(&updateHandler))
+		notificationGroup.Put("/email-accounts/:email", baseHandler.Serve(&updateHandler))
 	}
 }
