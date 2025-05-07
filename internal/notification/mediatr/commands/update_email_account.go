@@ -8,12 +8,9 @@ import (
 	"platform/internal/notification/services/encryption"
 	voExternal "platform/pkg/domain/value_object"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type UpdateEmailAccountCommand struct {
-	ID           uuid.UUID
 	Email        string
 	DisplayName  string
 	Host         string
@@ -45,14 +42,14 @@ func NewUpdateEmailAccountCommandHandler(encryption encryption.EncryptionService
 }
 
 func (c *UpdateEmailAccountCommandHandler) Handle(ctx context.Context, command *UpdateEmailAccountCommand) (*UpdateEmailAccountCommandResponse, error) {
-	ea, _ := c.repository.GetByID(ctx, command.ID)
-	if ea == nil {
-		return nil, nil
-	}
-
 	email, err := voExternal.NewEmail(command.Email)
 	if err != nil {
 		return nil, err
+	}
+
+	ea, _ := c.repository.GetByEmail(ctx, email)
+	if ea == nil {
+		return nil, nil
 	}
 
 	if !ea.GetEmail().Equals(email) {

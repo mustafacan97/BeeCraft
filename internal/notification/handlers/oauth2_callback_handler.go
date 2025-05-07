@@ -3,36 +3,39 @@ package handlers
 import (
 	"context"
 	"encoding/base64"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"log"
 	"platform/internal/notification/domain"
 	"platform/internal/notification/mediatr/commands"
+	event_notification "platform/internal/notification/mediatr/notifications"
 	"platform/internal/notification/mediatr/queries"
 	"platform/internal/shared"
 	baseHandler "platform/internal/shared/handlers"
 	"platform/pkg/services/mediator"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
 type OAuth2CallbackRequest struct {
-	Code         string `json:"code"`
-	State        string `json:"state"`
-	SessionState string `json:"session_state"`
-	Protocol     string `json:"protocol"`
-	Host         string `json:"host"`
+	Code             string `reqHeader:"-" params:"-" query:"code" json:"-" validate:"required"`
+	Error            string `reqHeader:"-" params:"-" query:"error" json:"-"`
+	ErrorDescription string `reqHeader:"-" params:"-" query:"error_description" json:"-"`
+	ErrorUri         string `reqHeader:"-" params:"-" query:"error_uri" json:"-"`
+	State            string `reqHeader:"-" params:"-" query:"state" json:"-" validate:"required"`
 }
 
-type OAuth2CallbackResponse struct{}
+type OAuth2CallbackResponse struct {
+}
 
 type OAuth2CallbackHandler struct{}
 
-func (h *OAuth2CallbackHandler) Handle(ctx context.Context, req *OAuth2CallbackRequest) (*baseHandler.Response[shared.HALResource], error) {
-	if req.State == "" || req.Code == "" {
-		return baseHandler.FailedResponse[shared.HALResource](errors.New("callback parameters are not valid")), nil
+func (h *OAuth2CallbackHandler) Handle(ctx context.Context, req *OAuth2CallbackRequest) (*baseHandler.Response[OAuth2CallbackResponse], error) {
+	if req.Error != "" {
+		return nil, fmt.Errorf("an error occurred on oauth2 callback with description: %s", req.ErrorDescription)
 	}
 
 	// STEP-1: Get encoded email account identifier from request
@@ -42,29 +45,42 @@ func (h *OAuth2CallbackHandler) Handle(ctx context.Context, req *OAuth2CallbackR
 		return nil, fmt.Errorf("invalid state parameter")
 	}
 
-	// STEP-2: Convert []byte to string
-	emailAccountID, err := uuid.FromBytes(decodedState)
-	if err != nil {
-		log.Printf("Invalid UUID format: %v", err)
-		return nil, fmt.Errorf("invalid UUID in state parameter")
+	// STEP-2: Unmarshal into structured state object
+	var stateObj struct {
+		ProjectID string `json:"project_id"`
+		Email     string `json:"email"`
+	}
+	if err := json.Unmarshal(decodedState, &stateObj); err != nil {
+		log.Printf("Failed to unmarshal state: %v", err)
+		return nil, fmt.Errorf("invalid state content")
 	}
 
-	// STEP-3: Get email account from repository
-	query := queries.GetEmailAccountByIDQuery{ID: emailAccountID}
-	resp, err := mediator.Send[*queries.GetEmailAccountByIDQuery, *queries.GetEmailAccountByIDQueryResponse](ctx, &query)
+	// STEP-3: Check if variables are valid which are coming from state
+	email := stateObj.Email
+	projectID, err := uuid.Parse(stateObj.ProjectID)
 	if err != nil {
-		// TODO: log error
-		return baseHandler.FailedResponse[shared.HALResource](errors.New("email account not found")), nil
+		return nil, shared.ErrInvalidContext
+	}
+
+	// STEP-4: Save project identifier to users' context
+	ctx = context.WithValue(ctx, shared.ProjectIDContextKey, projectID)
+
+	// STEP-5: Get email account from repository
+	query := queries.GetEmailAccountByEmailQuery{Email: email}
+	resp, err := mediator.Send[*queries.GetEmailAccountByEmailQuery, *queries.GetEmailAccountByEmailQueryResponse](ctx, &query)
+	if err != nil {
+		return nil, err
 	}
 	if resp == nil {
-		return baseHandler.FailedResponse[shared.HALResource](errors.New("email account not found")), nil
+		return baseHandler.NotFoundResponse[OAuth2CallbackResponse](), nil
 	}
 
+	// STEP-6: Get email account credentials
 	clientID, tenantID, clientSecret := resp.OAuth2Credentials.Credentials()
 	oauth2Config := &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		RedirectURL:  "http://localhost:3000/oauth2-callback",
+		RedirectURL:  "http://localhost:3000/v1/notification/email-accounts/oauth2-callback",
 	}
 
 	if resp.TypeId == domain.GmailOAuth2 {
@@ -78,16 +94,17 @@ func (h *OAuth2CallbackHandler) Handle(ctx context.Context, req *OAuth2CallbackR
 		}
 	}
 
-	token, err := oauth2Config.Exchange(context.Background(), req.Code)
+	// STEP-7: Create a token
+	token, err := oauth2Config.Exchange(ctx, req.Code)
 	if err != nil {
-		return baseHandler.FailedResponse[shared.HALResource](errors.New("token is not valid")), nil
+		zap.L().Error("Failed to exchange code for token", zap.Error(err))
+		return nil, err
 	}
 
-	// STEP-4
+	// STEP-8: Create update email account command
 	traditionalCredentials := resp.TraditionalCredentials
 	oauth2Credentials := resp.OAuth2Credentials
 	command := commands.UpdateEmailAccountCommand{
-		ID:           emailAccountID,
 		Email:        resp.Email.Value(),
 		DisplayName:  resp.DisplayName,
 		Host:         resp.Host,
@@ -110,8 +127,41 @@ func (h *OAuth2CallbackHandler) Handle(ctx context.Context, req *OAuth2CallbackR
 	}
 	_, err = mediator.Send[*commands.UpdateEmailAccountCommand, *commands.UpdateEmailAccountCommandResponse](ctx, &command)
 	if err != nil {
-		return baseHandler.FailedResponse[shared.HALResource](err), nil
+		return nil, err
 	}
 
-	return baseHandler.SuccessResponse[shared.HALResource](nil), nil
+	// STEP-9: Publish email account update notification
+	notification := event_notification.NewEmailAccountUpdatedEvent(projectID, email)
+	mediator.Publish(ctx, &notification)
+
+	// STEP-10: Return hateoas links to user
+	respData := OAuth2CallbackResponse{}
+	response := baseHandler.SuccessResponse(&respData)
+	response.Links = hateoasLinksForOAuth2Callback(email)
+	return response, nil
+}
+
+func hateoasLinksForOAuth2Callback(email string) shared.HALLinks {
+	return shared.HALLinks{
+		"delete": {
+			Href:   fmt.Sprintf("/v1/notification/email-accounts/%s", email),
+			Method: "DELETE",
+			Title:  "Delete this email account",
+		},
+		"list": {
+			Href:   "/v1/notification/email-accounts?p=1&ps=10",
+			Method: "GET",
+			Title:  "List all emails on the first page",
+		},
+		"self": {
+			Href:   fmt.Sprintf("/v1/notification/email-accounts/%s", email),
+			Method: "GET",
+			Title:  "View this email account",
+		},
+		"update": {
+			Href:   fmt.Sprintf("/v1/notification/email-accounts/%s", email),
+			Method: "PUT",
+			Title:  "Update this email account",
+		},
+	}
 }

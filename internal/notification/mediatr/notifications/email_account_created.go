@@ -15,6 +15,14 @@ type EmailAccountCreatedEvent struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+func NewEmailAccountCreatedEvent(projectID uuid.UUID, email string) EmailAccountCreatedEvent {
+	return EmailAccountCreatedEvent{
+		ProjectID: projectID,
+		Email:     email,
+		CreatedAt: time.Now(),
+	}
+}
+
 type EmailAccountCreatedEventHandler struct{}
 
 func (c *EmailAccountCreatedEventHandler) Handle(ctx context.Context, event *EmailAccountCreatedEvent) error {

@@ -50,7 +50,7 @@ func (c *GetEmailAccountByEmailQueryHandler) Handle(ctx context.Context, query *
 		return nil, nil
 	}
 
-	base := &GetEmailAccountByEmailQueryResponse{
+	return &GetEmailAccountByEmailQueryResponse{
 		ID:                     emailAccount.GetID(),
 		ProjectID:              emailAccount.GetProjectID(),
 		Email:                  emailAccount.GetEmail(),
@@ -62,7 +62,5 @@ func (c *GetEmailAccountByEmailQueryHandler) Handle(ctx context.Context, query *
 		TraditionalCredentials: emailAccount.GetTraditionalCredentials(),
 		OAuth2Credentials:      emailAccount.GetOAuth2Credentials(),
 		CreatedAt:              emailAccount.GetCreatedAt(),
-	}
-
-	return base, nil
+	}, nil
 }

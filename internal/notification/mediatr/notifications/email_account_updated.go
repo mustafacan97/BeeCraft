@@ -11,3 +11,11 @@ type EmailAccountUpdatedEvent struct {
 	Email     string    `json:"email"`
 	UpdatedAt time.Time `json:"deleted_at"`
 }
+
+func NewEmailAccountUpdatedEvent(projectID uuid.UUID, email string) EmailAccountUpdatedEvent {
+	return EmailAccountUpdatedEvent{
+		ProjectID: projectID,
+		Email:     email,
+		UpdatedAt: time.Now(),
+	}
+}

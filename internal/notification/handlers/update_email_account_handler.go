@@ -51,7 +51,6 @@ func (h *UpdateEmailAccountHandler) Handle(ctx context.Context, req *UpdateEmail
 
 	// Step-3: Create email account command
 	command := commands.UpdateEmailAccountCommand{
-		ID:           req.ID,
 		Email:        req.Email,
 		DisplayName:  req.DisplayName,
 		Host:         req.Host,
