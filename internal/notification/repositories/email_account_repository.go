@@ -10,7 +10,7 @@ import (
 
 type EmailAccountRepository interface {
 	// QUERY
-	GetAll(ctx context.Context, page, pageSize int) ([]*domain.EmailAccount, int, error)
+	GetAll(ctx context.Context) ([]*domain.EmailAccount, error)
 	GetByEmail(ctx context.Context, email vo.Email) (*domain.EmailAccount, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.EmailAccount, error)
 

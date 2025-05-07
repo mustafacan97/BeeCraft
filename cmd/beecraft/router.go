@@ -33,12 +33,12 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 	emailAccountRepository := notificationRepositories.NewPgEmailAccountRepository(dbPool, cacheService)
 
 	// Mediator Queries
+	getAllEmailAccountQueryHandler := queries.NewGetAllEmailAccountQueryHandler(emailAccountRepository)
 	getEmailAccountByEmailQueryHandler := queries.NewGetEmailAccountByEmailQueryHandler(emailAccountRepository)
 	getEmailAccountByIDQueryHandler := queries.NewGetEmailAccountByIDQueryHandler(emailAccountRepository)
-	listEmailAccountQueryHandler := queries.NewListEmailAccountQueryHandler(emailAccountRepository)
+	mediator.RegisterRequestHandler(getAllEmailAccountQueryHandler)
 	mediator.RegisterRequestHandler(getEmailAccountByEmailQueryHandler)
 	mediator.RegisterRequestHandler(getEmailAccountByIDQueryHandler)
-	mediator.RegisterRequestHandler(listEmailAccountQueryHandler)
 
 	// Mediator Commands
 	createEmailAccountCommandHandler := commands.NewCreateEmailAccountCommandHandler(encryptionService, emailAccountRepository)
@@ -76,18 +76,19 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 		deleteHandler := notificationHandlers.DeleteEmailAccountHandler{}
 		notificationGroup.Delete("/email-accounts/:email", baseHandler.Serve(&deleteHandler))
 
+		getAllHandler := notificationHandlers.GetAllEmailAccountHandler{}
+		notificationGroup.Get("/email-accounts", baseHandler.Serve(&getAllHandler))
+
 		getHandler := notificationHandlers.GetEmailAccountHandler{}
 		notificationGroup.Get("/email-accounts/:email", baseHandler.Serve(&getHandler))
 
 		updateHandler := notificationHandlers.UpdateEmailAccountHandler{}
 
-		listHandler := notificationHandlers.ListEmailAccountHandler{}
 		oauth2CallbackHandler := notificationHandlers.OAuth2CallbackHandler{}
 		testEmailHandler := notificationHandlers.SendTestEmailHandler{}
 
 		notificationGroup.Put("/email-accounts/:id", baseHandler.Serve(&updateHandler))
 
-		notificationGroup.Get("/email-accounts", baseHandler.Serve(&listHandler))
 		notificationGroup.Get("/email-accounts/oauth2-callback", baseHandler.Serve(&oauth2CallbackHandler))
 		notificationGroup.Get("/email-accounts/:id/:email", baseHandler.Serve(&testEmailHandler))
 	}

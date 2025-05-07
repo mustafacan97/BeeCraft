@@ -34,34 +34,66 @@ func NewPgEmailAccountRepository(pool *pgxpool.Pool, cache cache.CacheManager) E
 }
 
 // QUERY
-func (p *pgEmailAccountRepository) GetAll(ctx context.Context, page, pageSize int) ([]*domain.EmailAccount, int, error) {
-	projectID, _ := ctx.Value(shared.ProjectIDContextKey).(uuid.UUID)
-	offset := (page - 1) * pageSize
-
-	var totalCount int
-	countSQL := "SELECT COUNT(*) FROM notification.email_accounts WHERE project_id = $1"
-	if err := p.pool.QueryRow(ctx, countSQL, projectID).Scan(&totalCount); err != nil {
-		return nil, 0, err
+func (p *pgEmailAccountRepository) GetAll(ctx context.Context) ([]*domain.EmailAccount, error) {
+	// STEP-1: Get project identifier and validate
+	pidVal := ctx.Value(shared.ProjectIDContextKey)
+	projectID, ok := pidVal.(uuid.UUID)
+	if !ok {
+		return nil, shared.ErrInvalidContext
 	}
 
-	dataSQL := `SELECT * FROM notification.email_accounts WHERE project_id = $1 ORDER BY created_at LIMIT $2 OFFSET $3`
-	rows, err := p.pool.Query(ctx, dataSQL, projectID, pageSize, offset)
+	// STEP-2: Create a cache key
+	cacheKey := cache.CacheKey{
+		Key:  cacheKeyAll(projectID),
+		Time: cache.DefaultTTL,
+	}
+
+	// STEP-4: Check if the data is in the cache service
+	cached, err := p.cache.Get(ctx, cacheKey)
 	if err != nil {
-		return nil, 0, err
+		zap.L().Warn("cache GET error", zap.Error(err), zap.String("key", cacheKey.Key))
+	} else if cached != "" {
+		var dtoList []EmailAccountDTO
+		if err := json.Unmarshal([]byte(cached), &dtoList); err == nil {
+			accounts := make([]*domain.EmailAccount, 0, len(dtoList))
+			for _, dto := range dtoList {
+				accounts = append(accounts, dto.ToDomain())
+			}
+			return accounts, nil
+		}
+
+		// Clear any corrupted data
+		p.clearCaches(ctx, cacheKey.Key)
+		zap.L().Warn("cache unmarshal failed, key removed", zap.String("key", cacheKey.Key), zap.Error(err))
+	}
+
+	// STEP-5: Get result from database
+	sql := `SELECT * FROM notification.email_accounts WHERE project_id = $1 ORDER BY created_at`
+	rows, err := p.pool.Query(ctx, sql, projectID)
+	if err != nil {
+		return nil, err
 	}
 	defer rows.Close()
 
-	dtos, err := pgx.CollectRows(rows, pgx.RowToStructByName[EmailAccountDTO])
+	dtoList, err := pgx.CollectRows(rows, pgx.RowToStructByName[EmailAccountDTO])
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	accounts := make([]*domain.EmailAccount, 0, len(dtos))
-	for _, dto := range dtos {
+	// STEP-6: Convert from dto to domain
+	accounts := make([]*domain.EmailAccount, 0, len(dtoList))
+	for _, dto := range dtoList {
 		accounts = append(accounts, dto.ToDomain())
 	}
 
-	return accounts, totalCount, nil
+	// STEP-7: Save result the cache service
+	if serialized, err := json.Marshal(dtoList); err == nil {
+		if err := p.cache.Set(ctx, cacheKey, string(serialized)); err != nil {
+			zap.L().Error("an error occurred while writing to cache", zap.Error(err))
+		}
+	}
+
+	return accounts, nil
 }
 
 func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email vo.Email) (*domain.EmailAccount, error) {
