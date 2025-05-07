@@ -39,5 +39,5 @@ func (h *SendTestEmailHandler) Handle(ctx context.Context, req *SendTestEmailReq
 		return baseHandler.FailedResponse[shared.HALResource](err), nil
 	}
 
-	return baseHandler.SuccessResponseWithoutData[shared.HALResource](), nil
+	return baseHandler.SuccessResponse(&shared.HALResource{}), nil
 }

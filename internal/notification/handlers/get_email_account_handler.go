@@ -3,9 +3,11 @@ package handlers
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"platform/internal/notification/domain"
 	"platform/internal/notification/mediatr/queries"
+	"platform/internal/shared"
 	baseHandler "platform/internal/shared/handlers"
 	"platform/pkg/services/mediator"
 
@@ -15,7 +17,8 @@ import (
 )
 
 type GetEmailAccountRequest struct {
-	ID uuid.UUID `params:"id" json:"-" validate:"required,uuid4"`
+	ProjectID uuid.UUID `reqHeader:"X-Project-ID" params:"-" json:"-" validate:"required,uuid"`
+	Email     string    `reqHeader:"-" params:"email" json:"-" validate:"required,email"`
 }
 
 type GetEmailAccountResponse struct {
@@ -25,19 +28,20 @@ type GetEmailAccountResponse struct {
 	Port         int    `json:"port"`
 	EnableSSL    bool   `json:"enable_ssl"`
 	TypeId       int    `json:"type_id"`
-	Username     string `json:"username"`
-	Password     string `json:"password"`
-	ClientID     string `json:"client_id"`
-	TenantID     string `json:"tenant_id"`
-	OAuth2Url    string `json:"oauth2_url"`
-	ClientSecret string `json:"client_secret"`
+	Username     string `json:"username,omitempty"`
+	Password     string `json:"password,omitempty"`
+	ClientID     string `json:"client_id,omitempty"`
+	TenantID     string `json:"tenant_id,omitempty"`
+	ClientSecret string `json:"client_secret,omitempty"`
+	OAuth2Url    string `json:"oauth2_url,omitempty"`
 }
 
 type GetEmailAccountHandler struct{}
 
 func (h *GetEmailAccountHandler) Handle(ctx context.Context, req *GetEmailAccountRequest) (*baseHandler.Response[GetEmailAccountResponse], error) {
-	query := queries.GetEmailAccountByIDQuery{ID: req.ID}
-	resp, err := mediator.Send[*queries.GetEmailAccountByIDQuery, *queries.GetEmailAccountByIDQueryResponse](ctx, &query)
+	// STEP-1: Get the email account
+	query := queries.GetEmailAccountByEmailQuery{Email: req.Email}
+	resp, err := mediator.Send[*queries.GetEmailAccountByEmailQuery, *queries.GetEmailAccountByEmailQueryResponse](ctx, &query)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +49,8 @@ func (h *GetEmailAccountHandler) Handle(ctx context.Context, req *GetEmailAccoun
 		return baseHandler.NotFoundResponse[GetEmailAccountResponse](), nil
 	}
 
-	response := GetEmailAccountResponse{
+	// STEP-2: Create response struct
+	data := GetEmailAccountResponse{
 		Email:       resp.Email.Value(),
 		DisplayName: resp.DisplayName,
 		Host:        resp.Host,
@@ -54,34 +59,45 @@ func (h *GetEmailAccountHandler) Handle(ctx context.Context, req *GetEmailAccoun
 		TypeId:      resp.TypeId,
 	}
 
-	switch resp.TypeId {
-	case domain.Login:
+	// STEP-3: Get the related credentials
+	if resp.TypeId == domain.Login {
 		username, password := resp.TraditionalCredentials.Credentials()
-		response.Username = username
-		response.Password = password
-	case domain.GmailOAuth2, domain.MicrosoftOAuth2:
+		data.Username = username
+		data.Password = password
+	} else {
 		clientID, tenantID, clientSecret := resp.OAuth2Credentials.Credentials()
-		response.ClientID = clientID
-		response.TenantID = tenantID
-		response.ClientSecret = clientSecret
+		data.ClientID = clientID
+		data.TenantID = tenantID
+		data.ClientSecret = clientSecret
 	}
 
+	// STEP-4: Get OAut2 URL
 	if resp.OAuth2Credentials != nil {
-		response.OAuth2Url = getOAuth2Url(req.ID, response.ClientID, response.TenantID, response.ClientSecret)
+		data.OAuth2Url = getOAuth2Url(req.ProjectID, req.Email, data.ClientID, data.TenantID, data.ClientSecret)
 	}
 
-	return baseHandler.SuccessResponse(&response), nil
+	// STEP-4: Returns hateoas links to user
+	response := baseHandler.SuccessResponse(&data)
+	response.Links = hateoasLinksForGet(req.Email)
+	return response, nil
 }
 
-func getOAuth2Url(emailAccountID uuid.UUID, clientID, tenantID, clientSecret string) string {
+func getOAuth2Url(projectID uuid.UUID, email, clientID, tenantID, clientSecret string) string {
+	if clientID == "" || tenantID == "" || clientSecret == "" {
+		return ""
+	}
+
 	oauth2Config := &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		RedirectURL:  "http://localhost:3000/oauth2-callback",
+		RedirectURL:  "http://localhost:3000/v1/notification/email-accounts/oauth2-callback",
 	}
 
 	if tenantID != "" {
-		oauth2Config.Scopes = []string{"https://outlook.office365.com/SMTP.Send", "offline_access"}
+		oauth2Config.Scopes = []string{
+			"https://outlook.office365.com/SMTP.Send",
+			"offline_access",
+		}
 		oauth2Config.Endpoint = oauth2.Endpoint{
 			AuthURL:  fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/authorize", tenantID),
 			TokenURL: fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", tenantID),
@@ -91,6 +107,32 @@ func getOAuth2Url(emailAccountID uuid.UUID, clientID, tenantID, clientSecret str
 		oauth2Config.Endpoint = google.Endpoint
 	}
 
-	encodedState := base64.StdEncoding.EncodeToString([]byte(emailAccountID.String()))
+	stateObj := map[string]string{
+		"project_id": projectID.String(),
+		"email":      email,
+	}
+	stateBytes, _ := json.Marshal(stateObj)
+	encodedState := base64.URLEncoding.EncodeToString(stateBytes)
+
 	return oauth2Config.AuthCodeURL(encodedState, oauth2.AccessTypeOffline)
+}
+
+func hateoasLinksForGet(email string) shared.HALLinks {
+	return shared.HALLinks{
+		"delete": {
+			Href:   fmt.Sprintf("/v1/notification/email-accounts/%s", email),
+			Method: "DELETE",
+			Title:  "Delete this email account",
+		},
+		"list": {
+			Href:   "/v1/notification/email-accounts?p=0&ps=1",
+			Method: "GET",
+			Title:  "List all emails on the first page",
+		},
+		"update": {
+			Href:   fmt.Sprintf("/v1/notification/email-accounts/%s", email),
+			Method: "PUT",
+			Title:  "Update this email account",
+		},
+	}
 }

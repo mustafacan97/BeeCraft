@@ -91,7 +91,7 @@ func (p *pgEmailAccountRepository) GetByEmail(ctx context.Context, email vo.Emai
 		}
 
 		// Clear any corrupted data
-		_ = p.cache.Remove(ctx, cacheKey.Key)
+		p.clearCaches(ctx, cacheKey.Key)
 		zap.L().Warn("cache unmarshal failed, key removed", zap.String("key", cacheKey.Key), zap.Error(err))
 	}
 

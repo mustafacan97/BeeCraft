@@ -17,12 +17,6 @@ func SuccessResponse[T any](data *T) *Response[T] {
 	}
 }
 
-func SuccessResponseWithoutData[T any]() *Response[T] {
-	return &Response[T]{
-		ResponseStatus: 200,
-	}
-}
-
 func NotFoundResponse[T any]() *Response[T] {
 	return &Response[T]{
 		ResponseStatus: 404,

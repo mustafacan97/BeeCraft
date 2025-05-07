@@ -76,16 +76,17 @@ func SetupRouter(app *fiber.App, dbPool *pgxpool.Pool, bus event_bus.EventBus) {
 		deleteHandler := notificationHandlers.DeleteEmailAccountHandler{}
 		notificationGroup.Delete("/email-accounts/:email", baseHandler.Serve(&deleteHandler))
 
+		getHandler := notificationHandlers.GetEmailAccountHandler{}
+		notificationGroup.Get("/email-accounts/:email", baseHandler.Serve(&getHandler))
+
 		updateHandler := notificationHandlers.UpdateEmailAccountHandler{}
 
-		getHandler := notificationHandlers.GetEmailAccountHandler{}
 		listHandler := notificationHandlers.ListEmailAccountHandler{}
 		oauth2CallbackHandler := notificationHandlers.OAuth2CallbackHandler{}
 		testEmailHandler := notificationHandlers.SendTestEmailHandler{}
 
 		notificationGroup.Put("/email-accounts/:id", baseHandler.Serve(&updateHandler))
 
-		notificationGroup.Get("/email-accounts/:id", baseHandler.Serve(&getHandler))
 		notificationGroup.Get("/email-accounts", baseHandler.Serve(&listHandler))
 		notificationGroup.Get("/email-accounts/oauth2-callback", baseHandler.Serve(&oauth2CallbackHandler))
 		notificationGroup.Get("/email-accounts/:id/:email", baseHandler.Serve(&testEmailHandler))
