@@ -2,7 +2,7 @@ package domain
 
 import (
 	"platform/internal/shared"
-	"platform/pkg/domain/valueobject"
+	vo "platform/pkg/domain/value_object"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,12 +10,12 @@ import (
 
 type Subscription struct {
 	projectId uuid.UUID
-	email     valueobject.Email
+	email     vo.Email
 	language  shared.Language
 	createdAt time.Time
 }
 
-func NewSubscription(projectId uuid.UUID, email valueobject.Email, language shared.Language) *Subscription {
+func NewSubscription(projectId uuid.UUID, email vo.Email, language shared.Language) *Subscription {
 	return &Subscription{
 		projectId: projectId,
 		email:     email,

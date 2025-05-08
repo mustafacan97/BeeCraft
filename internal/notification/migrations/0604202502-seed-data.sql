@@ -4,9 +4,9 @@ DO $$
         email_account_id UUID := '44e7ac3f-d914-4890-8e1a-91713c375219';
     BEGIN    
     
-        INSERT INTO notification.email_accounts (id, project_id, email, display_name, email_authentication_method_type_id, client_id, client_secret, tenant_id, created_at)
+        INSERT INTO notification.email_accounts (id, project_id, email, display_name, host, port, enable_ssl, type_id, client_id, tenant_id, client_secret, created_at)
         VALUES 
-            (email_account_id, project_id, 'mustafa@yeyu.co', 'mustafa@yeyu.co', 4, null, null, null, CURRENT_TIMESTAMP);
+            (email_account_id, project_id, 'mustafa@yeyu.co', 'mustafa@yeyu.co', 'smtp.office365.com', 587, 3, '', '', '', CURRENT_TIMESTAMP);
         
         INSERT INTO notification.email_templates (email_account_id, name, language, subject, body, allow_direct_reply)
         VALUES

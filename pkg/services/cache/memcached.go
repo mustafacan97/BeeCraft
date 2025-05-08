@@ -2,25 +2,23 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"time"
 
 	"github.com/bradfitz/gomemcache/memcache"
 )
 
 type MemcacheManager struct {
-	client     *memcache.Client
-	defaultTTL time.Duration
+	client *memcache.Client
 }
 
 func NewMemcacheManager(server string) *MemcacheManager {
 	return &MemcacheManager{
-		client:     memcache.New(server),
-		defaultTTL: defaultTTL,
+		client: memcache.New(server),
 	}
 }
 
-func (m *MemcacheManager) Get(ctx context.Context, key cacheKey) (string, error) {
+func (m *MemcacheManager) Get(ctx context.Context, key CacheKey) (string, error) {
 	item, err := m.client.Get(key.Key)
 	if err == memcache.ErrCacheMiss {
 		return "", ErrKeyNotFound
@@ -30,23 +28,23 @@ func (m *MemcacheManager) Get(ctx context.Context, key cacheKey) (string, error)
 	return string(item.Value), nil
 }
 
-func (m *MemcacheManager) Set(ctx context.Context, key cacheKey, value string) error {
-	ttl := m.defaultTTL
-	if key.CacheTime > 0 {
-		ttl = time.Duration(key.CacheTime) * time.Minute
-	}
-
+func (m *MemcacheManager) Set(ctx context.Context, key CacheKey, value string) error {
 	item := &memcache.Item{
 		Key:        key.Key,
 		Value:      []byte(value),
-		Expiration: int32(ttl.Seconds()), // TTL in seconds
+		Expiration: int32(min(key.Time, DefaultTTL).Seconds()),
 	}
 
 	return m.client.Set(item)
 }
 
-func (m *MemcacheManager) Remove(ctx context.Context, key cacheKey) error {
-	return m.client.Delete(key.Key)
+func (m *MemcacheManager) Remove(ctx context.Context, key string) error {
+	err := m.client.Delete(key)
+	// If key not exists we act like deleted
+	if errors.Is(err, memcache.ErrCacheMiss) {
+		return nil
+	}
+	return err
 }
 
 // Memcached does not support key scanning or prefix deletes natively

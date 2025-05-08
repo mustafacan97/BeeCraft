@@ -21,11 +21,11 @@ func NewRedisCacheManager(addr string, password string, db int) *RedisCacheManag
 
 	return &RedisCacheManager{
 		client:     rdb,
-		defaultTTL: defaultTTL,
+		defaultTTL: DefaultTTL,
 	}
 }
 
-func (r *RedisCacheManager) Get(ctx context.Context, key cacheKey) (string, error) {
+func (r *RedisCacheManager) Get(ctx context.Context, key CacheKey) (string, error) {
 	val, err := r.client.Get(ctx, key.Key).Result()
 	if err == redis.Nil {
 		return "", ErrKeyNotFound
@@ -35,17 +35,17 @@ func (r *RedisCacheManager) Get(ctx context.Context, key cacheKey) (string, erro
 	return val, nil
 }
 
-func (r *RedisCacheManager) Set(ctx context.Context, key cacheKey, value string) error {
+func (r *RedisCacheManager) Set(ctx context.Context, key CacheKey, value string) error {
 	ttl := r.defaultTTL
-	if key.CacheTime > 0 {
-		ttl = time.Duration(key.CacheTime) * time.Minute
+	if key.Time > 0 {
+		ttl = time.Duration(key.Time) * time.Minute
 	}
 
 	return r.client.Set(ctx, key.Key, value, ttl).Err()
 }
 
-func (r *RedisCacheManager) Remove(ctx context.Context, key cacheKey) error {
-	return r.client.Del(ctx, key.Key).Err()
+func (r *RedisCacheManager) Remove(ctx context.Context, key string) error {
+	return r.client.Del(ctx, key).Err()
 }
 
 func (r *RedisCacheManager) RemoveByPrefix(ctx context.Context, prefix string) error {

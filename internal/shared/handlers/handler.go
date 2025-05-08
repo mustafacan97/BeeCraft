@@ -16,6 +16,7 @@ var (
 
 func init() {
 	validation.RegisterValidation("password", validators.PasswordValidator)
+	validation.RegisterValidation("hostname", validators.HostnameValidator)
 }
 
 type Handler[I Request, O any] interface {
@@ -26,22 +27,30 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var req I
 
-		if err := c.BodyParser(&req); err != nil && !errors.Is(err, fiber.ErrUnprocessableEntity) {
-			// TODO
+		ctx := c.UserContext()
+
+		if err := c.ReqHeaderParser(&req); err != nil {
+			// TODO: log here
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid request header parameters")
 		}
 
 		if err := c.ParamsParser(&req); err != nil {
-			// TODO
+			// TODO: log here
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid URL parameters")
 		}
 
 		if err := c.QueryParser(&req); err != nil {
-			// TODO
+			// TODO: log here
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid query parameters")
 		}
 
-		if err := c.ReqHeaderParser(&req); err != nil {
-			// TODO
+		if err := c.BodyParser(&req); err != nil && !errors.Is(err, fiber.ErrUnprocessableEntity) {
+			// TODO: log here
+			return fiber.NewError(fiber.StatusBadRequest, "Invalid JSON body")
 		}
 
+		// For validation, I started with Fiber middleware.
+		// If needed in the future, I can move it to Mediator pipeline.
 		if err := validation.Struct(&req); err != nil {
 			// Extract validation errors
 			validationErrors := err.(validator.ValidationErrors)
@@ -60,6 +69,18 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 					errorMessages = append(errorMessages, "Please enter a valid email address")
 				case "password":
 					errorMessages = append(errorMessages, "Password must have at least a uppercase-lowercase and a numeric characters")
+				case "hostname":
+					errorMessages = append(errorMessages, "Please enter a valid hostname")
+				case "gt":
+					errorMessages = append(errorMessages, fieldError.Field()+" must be greater than "+fieldError.Param())
+				case "gte":
+					errorMessages = append(errorMessages, fieldError.Field()+" must be greater than or equal to "+fieldError.Param())
+				case "lt":
+					errorMessages = append(errorMessages, fieldError.Field()+" must be less than "+fieldError.Param())
+				case "lte":
+					errorMessages = append(errorMessages, fieldError.Field()+" must be less than or equal to "+fieldError.Param())
+				case "oneof":
+					errorMessages = append(errorMessages, fieldError.Field()+" must be one of the following values: "+fieldError.Param())
 				}
 			}
 
@@ -69,10 +90,10 @@ func Serve[I, O any](h Handler[I, O]) fiber.Handler {
 			}
 		}
 
-		resp, err := h.Handle(c.UserContext(), &req)
+		resp, err := h.Handle(ctx, &req)
 		if err != nil {
 			zap.L().Error("An error occurred during request handling", zap.Error(err))
-			return c.Status(fiber.StatusOK).JSON(fiber.Map{"error": "An unexpected error occurred. Please try again later."})
+			return c.Status(fiber.StatusOK).JSON(fiber.Map{"error_message": "An unexpected error occurred. Please try again later."})
 		}
 
 		err = c.Next()

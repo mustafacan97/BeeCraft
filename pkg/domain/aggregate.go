@@ -14,6 +14,10 @@ func NewAggregateRoot(id uuid.UUID) AggregateRoot {
 	}
 }
 
+func (a *AggregateRoot) SetID(id uuid.UUID) {
+	a.BaseEntity.ID = id
+}
+
 func (a *AggregateRoot) AddEvent(event DomainEvent) {
 	a.domainEvents = append(a.domainEvents, event)
 }

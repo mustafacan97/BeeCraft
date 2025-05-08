@@ -1,10 +1,9 @@
 package domain
 
 import (
-	"fmt"
-	internalValueObject "platform/internal/notification/domain/value_object"
+	voInternal "platform/internal/notification/domain/value_object"
 	"platform/pkg/domain"
-	"platform/pkg/domain/valueobject"
+	voExternal "platform/pkg/domain/value_object"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,55 +18,79 @@ const (
 
 type EmailAccount struct {
 	domain.AggregateRoot
-	projectID             uuid.UUID
-	typeID                int
-	email                 valueobject.Email
-	displayName           string
-	host                  string
-	port                  int
-	enableSsl             bool
-	createdAt             time.Time
-	TraditionalCredential *internalValueObject.TraditionalCredential
-	OAuthCredentials      *internalValueObject.OAuthCredential
-	TokenInformation      *internalValueObject.TokenInformation
-	emailTemplates        []EmailTemplate
-	queuedEmails          []QueuedEmail
+	projectID              uuid.UUID
+	typeID                 int
+	email                  voExternal.Email
+	displayName            string
+	host                   string
+	port                   int
+	enableSsl              bool
+	traditionalCredentials *voInternal.TraditionalCredentials
+	oAuth2Credentials      *voInternal.OAuth2Credentials
+	tokenInformation       *voInternal.TokenInformation
+	createdAt              time.Time
+	emailTemplates         []EmailTemplate
+	queuedEmails           []QueuedEmail
 }
 
-func NewEmailAccount(projectID uuid.UUID, typeID int, email valueobject.Email, displayName, host string, port int, enableSSL bool) *EmailAccount {
-	return &EmailAccount{
-		AggregateRoot: domain.NewAggregateRoot(uuid.New()),
-		projectID:     projectID,
-		typeID:        typeID,
-		email:         email,
-		displayName:   displayName,
-		host:          host,
-		port:          port,
-		enableSsl:     enableSSL,
-		createdAt:     time.Now(),
+func NewEmailAccount(id, projectID uuid.UUID, typeID int, email voExternal.Email, displayName string, host string, port int, enableSSL bool) *EmailAccount {
+	emailAccount := &EmailAccount{
+		AggregateRoot:  domain.NewAggregateRoot(id),
+		projectID:      projectID,
+		typeID:         typeID,
+		email:          email,
+		displayName:    displayName,
+		host:           host,
+		port:           port,
+		enableSsl:      enableSSL,
+		createdAt:      time.Now(),
+		emailTemplates: make([]EmailTemplate, 0),
+		queuedEmails:   make([]QueuedEmail, 0),
 	}
+
+	return emailAccount
 }
 
-func EmailAccountFromDB(id uuid.UUID, projectID uuid.UUID, typeID int, email valueobject.Email, displayName, host string, port int, enableSSL bool, createdAt time.Time) *EmailAccount {
-	return &EmailAccount{
-		AggregateRoot: domain.NewAggregateRoot(id),
-		projectID:     projectID,
-		typeID:        typeID,
-		email:         email,
-		displayName:   displayName,
-		host:          host,
-		port:          port,
-		enableSsl:     enableSSL,
-		createdAt:     createdAt,
-	}
+// GETTERS
+func (ea *EmailAccount) GetProjectID() uuid.UUID    { return ea.projectID }
+func (ea *EmailAccount) GetEmail() voExternal.Email { return ea.email }
+func (ea *EmailAccount) GetDisplayName() string     { return ea.displayName }
+func (ea *EmailAccount) GetHost() string            { return ea.host }
+func (ea *EmailAccount) GetPort() int               { return ea.port }
+func (ea *EmailAccount) GetEnableSSL() bool         { return ea.enableSsl }
+func (ea *EmailAccount) GetSmtpType() int           { return ea.typeID }
+func (ea *EmailAccount) GetTraditionalCredentials() *voInternal.TraditionalCredentials {
+	return ea.traditionalCredentials
 }
+func (ea *EmailAccount) GetOAuth2Credentials() *voInternal.OAuth2Credentials {
+	return ea.oAuth2Credentials
+}
+func (ea *EmailAccount) GetTokenInformation() *voInternal.TokenInformation {
+	return ea.tokenInformation
+}
+func (ea *EmailAccount) GetCreatedAt() time.Time        { return ea.createdAt }
+func (ea *EmailAccount) GetTemplates() []EmailTemplate  { return ea.emailTemplates }
+func (ea *EmailAccount) GetQueuedEmails() []QueuedEmail { return ea.queuedEmails }
 
-func (ea *EmailAccount) GetProjectID() uuid.UUID { return ea.projectID }
-func (ea *EmailAccount) GetTypeID() int          { return ea.typeID }
-func (ea *EmailAccount) GetEmail() string        { return ea.email.GetValue() }
-func (ea *EmailAccount) GetDisplayName() string  { return ea.displayName }
-func (ea *EmailAccount) GetHost() string         { return ea.host }
-func (ea *EmailAccount) GetPort() int            { return ea.port }
-func (ea *EmailAccount) GetAddr() string         { return fmt.Sprintf("%s:%d", ea.host, ea.port) }
-func (ea *EmailAccount) GetCreatedAt() time.Time { return ea.createdAt }
-func (ea *EmailAccount) IsSslEnabled() bool      { return ea.enableSsl }
+// SETTERS
+func (ea *EmailAccount) SetProjectID(id uuid.UUID)         { ea.projectID = id }
+func (ea *EmailAccount) SetEmail(email voExternal.Email)   { ea.email = email }
+func (ea *EmailAccount) SetDisplayName(displayName string) { ea.displayName = displayName }
+func (ea *EmailAccount) SetHost(host string)               { ea.host = host }
+func (ea *EmailAccount) SetPort(port int)                  { ea.port = port }
+func (ea *EmailAccount) SetEnableSSL(enableSSL bool)       { ea.enableSsl = enableSSL }
+func (ea *EmailAccount) SetSmtpType(smtpType int)          { ea.typeID = smtpType }
+func (ea *EmailAccount) SetTraditionalCredentials(credentials *voInternal.TraditionalCredentials) {
+	ea.traditionalCredentials = credentials
+	ea.oAuth2Credentials = nil
+	ea.tokenInformation = nil
+}
+func (ea *EmailAccount) SetOAuth2Credentials(credentials *voInternal.OAuth2Credentials) {
+	ea.traditionalCredentials = nil
+	ea.oAuth2Credentials = credentials
+}
+func (ea *EmailAccount) SetTokenInformation(tokenInformation *voInternal.TokenInformation) {
+	ea.traditionalCredentials = nil
+	ea.tokenInformation = tokenInformation
+}
+func (ea *EmailAccount) SetCreatedAt(createdAt time.Time) { ea.createdAt = createdAt }

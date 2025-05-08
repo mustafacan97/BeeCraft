@@ -23,7 +23,7 @@ const cleanupInterval = 15 * time.Minute
 func NewInMemoryCacheManager() *InMemoryCacheManager {
 	manager := &InMemoryCacheManager{
 		data:       make(map[string]entry),
-		defaultTTL: defaultTTL,
+		defaultTTL: DefaultTTL,
 	}
 
 	go manager.startCleanupTask()
@@ -31,7 +31,7 @@ func NewInMemoryCacheManager() *InMemoryCacheManager {
 	return manager
 }
 
-func (c *InMemoryCacheManager) Get(ctx context.Context, key cacheKey) (any, error) {
+func (c *InMemoryCacheManager) Get(ctx context.Context, key CacheKey) (any, error) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -43,13 +43,13 @@ func (c *InMemoryCacheManager) Get(ctx context.Context, key cacheKey) (any, erro
 	return item.value, nil
 }
 
-func (c *InMemoryCacheManager) Set(ctx context.Context, key cacheKey, value any) error {
+func (c *InMemoryCacheManager) Set(ctx context.Context, key CacheKey, value any) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	ttl := c.defaultTTL
-	if key.CacheTime > 0 {
-		ttl = time.Duration(key.CacheTime) * time.Minute
+	if key.Time > 0 {
+		ttl = time.Duration(key.Time) * time.Minute
 	}
 
 	c.data[key.Key] = entry{
@@ -60,11 +60,11 @@ func (c *InMemoryCacheManager) Set(ctx context.Context, key cacheKey, value any)
 	return nil
 }
 
-func (c *InMemoryCacheManager) Remove(ctx context.Context, key cacheKey) error {
+func (c *InMemoryCacheManager) Remove(ctx context.Context, key string) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	delete(c.data, key.Key)
+	delete(c.data, key)
 	return nil
 }
 

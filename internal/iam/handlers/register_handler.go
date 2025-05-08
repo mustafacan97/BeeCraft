@@ -53,7 +53,7 @@ func (h *RegisterHandler) Handle(ctx context.Context, req *RegisterRequest) (*ba
 	}
 
 	if exists {
-		return baseHandler.ConflictResponse[RegisterResponse]("user already exists"), nil
+		return baseHandler.ConflictResponse[RegisterResponse](errors.New("user already exists")), nil
 	}
 
 	user, err := domain.NewUser(req.Email, req.Password, []domain.Role{*registeredRole})

@@ -1,4 +1,4 @@
-package valueobject
+package vo
 
 import (
 	"platform/pkg/domain"
@@ -20,10 +20,10 @@ func NewTokenInformation(accessToken, refreshToken string, expireAt time.Time) *
 	}
 }
 
-func (e *TokenInformation) GetTokenInformation() (string, string, time.Time) {
-	return e.accessToken, e.refreshToken, e.expireAt
-}
-
 func (e *TokenInformation) GetAtomicValues() []interface{} {
 	return []any{e.accessToken, e.refreshToken, e.expireAt}
+}
+
+func (e *TokenInformation) TokenInformation() (string, string, time.Time) {
+	return e.accessToken, e.refreshToken, e.expireAt
 }
