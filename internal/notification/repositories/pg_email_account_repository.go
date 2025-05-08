@@ -15,12 +15,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	ErrMissingProjectID = fmt.Errorf("project ID not found in context")
-	ErrInvalidProjectID = fmt.Errorf("project ID has invalid type")
-	ErrEmptyProjectID   = fmt.Errorf("project ID is empty (uuid.Nil)")
-)
-
 type pgEmailAccountRepository struct {
 	pool  *pgxpool.Pool
 	cache cache.CacheManager
@@ -240,6 +234,7 @@ func (p *pgEmailAccountRepository) Update(ctx context.Context, ea *domain.EmailA
 	return nil
 }
 
+// PRIVATE METHODS
 func (p *pgEmailAccountRepository) clearCaches(ctx context.Context, keys ...string) {
 	for _, key := range keys {
 		err := p.cache.Remove(ctx, key)
